@@ -57,7 +57,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 	}
 
 	// Create new user
-	user := &Models.User{
+	user := &models.User{
 		Name:     req.Name,
 		Email:    req.Email,
 		Password: string(hashedPassword),
@@ -103,7 +103,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 // Login handles user login
 // POST /api/v1/auth/login
 func (ac *AuthController) Login(c *gin.Context) {
-	var req Requests.LoginRequest
+	var req requests.LoginRequest
 
 	// Validate request
 	if err := req.Validate(c); err != nil {
@@ -111,7 +111,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 	}
 
 	// Find user by email
-	user, err := Models.FindByEmail(ac.db, req.Email)
+	user, err := models.FindByEmail(ac.db, req.Email)
 	if err != nil {
 		utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to retrieve user", nil)
 		return
@@ -179,7 +179,7 @@ func (ac *AuthController) Me(c *gin.Context) {
 	}
 
 	// Fetch user from database
-	user, err := Models.FindByID(ac.db, userIDInt64)
+	user, err := models.FindByID(ac.db, userIDInt64)
 	if err != nil {
 		utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to retrieve user", nil)
 		return

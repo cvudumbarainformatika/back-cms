@@ -30,10 +30,7 @@ func (m *Menu) Create(db *sqlx.DB) error {
 	m.CreatedAt = time.Now()
 	m.UpdatedAt = time.Now()
 
-	query := `
-		INSERT INTO menus (label, slug, to, icon, parent_id, position, order, is_active, is_fixed, roles, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
+	query := "INSERT INTO menus (label, slug, `to`, icon, parent_id, position, `order`, is_active, is_fixed, roles, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 	result, err := db.Exec(query, m.Label, m.Slug, m.To, m.Icon, m.ParentID, m.Position, m.Order, m.IsActive, m.IsFixed, m.Roles, m.CreatedAt, m.UpdatedAt)
 	if err != nil {
 		return err
@@ -50,11 +47,7 @@ func (m *Menu) Create(db *sqlx.DB) error {
 // FindByID finds a menu by ID
 func FindMenuByID(db *sqlx.DB, id int64) (*Menu, error) {
 	menu := &Menu{}
-	query := `
-		SELECT id, label, slug, to, icon, parent_id, position, order, is_active, is_fixed, roles, created_at, updated_at 
-		FROM menus 
-		WHERE id = ?
-	`
+	query := "SELECT id, label, slug, `to`, icon, parent_id, position, `order`, is_active, is_fixed, roles, created_at, updated_at FROM menus WHERE id = ?"
 	err := db.Get(menu, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -68,7 +61,7 @@ func FindMenuByID(db *sqlx.DB, id int64) (*Menu, error) {
 // GetMenusByPosition retrieves all menus by position
 func GetMenusByPosition(db *sqlx.DB, position string) ([]Menu, error) {
 	var menus []Menu
-	query := `SELECT id, label, slug, to, icon, parent_id, position, order, is_active, is_fixed, roles, created_at, updated_at FROM menus WHERE position = ? AND is_active = TRUE ORDER BY order ASC`
+	query := "SELECT id, label, slug, `to`, icon, parent_id, position, `order`, is_active, is_fixed, roles, created_at, updated_at FROM menus WHERE position = ? AND is_active = TRUE ORDER BY `order` ASC"
 	err := db.Select(&menus, query, position)
 	return menus, err
 }
@@ -76,7 +69,7 @@ func GetMenusByPosition(db *sqlx.DB, position string) ([]Menu, error) {
 // GetAllMenus retrieves all menus
 func GetAllMenus(db *sqlx.DB) ([]Menu, error) {
 	var menus []Menu
-	query := `SELECT id, label, slug, to, icon, parent_id, position, order, is_active, is_fixed, roles, created_at, updated_at FROM menus WHERE is_active = TRUE ORDER BY position ASC, order ASC`
+	query := "SELECT id, label, slug, `to`, icon, parent_id, position, `order`, is_active, is_fixed, roles, created_at, updated_at FROM menus WHERE is_active = TRUE ORDER BY position ASC, `order` ASC"
 	err := db.Select(&menus, query)
 	return menus, err
 }
@@ -84,18 +77,14 @@ func GetAllMenus(db *sqlx.DB) ([]Menu, error) {
 // Update updates a menu record
 func (m *Menu) Update(db *sqlx.DB) error {
 	m.UpdatedAt = time.Now()
-	query := `
-		UPDATE menus 
-		SET label = ?, slug = ?, to = ?, icon = ?, parent_id = ?, position = ?, order = ?, is_active = ?, is_fixed = ?, roles = ?, updated_at = ?
-		WHERE id = ?
-	`
+	query := "UPDATE menus SET label = ?, slug = ?, `to` = ?, icon = ?, parent_id = ?, position = ?, `order` = ?, is_active = ?, is_fixed = ?, roles = ?, updated_at = ? WHERE id = ?"
 	_, err := db.Exec(query, m.Label, m.Slug, m.To, m.Icon, m.ParentID, m.Position, m.Order, m.IsActive, m.IsFixed, m.Roles, m.UpdatedAt, m.ID)
 	return err
 }
 
 // Delete deletes a menu record
 func (m *Menu) Delete(db *sqlx.DB) error {
-	query := `DELETE FROM menus WHERE id = ?`
+	query := "DELETE FROM menus WHERE id = ?"
 	_, err := db.Exec(query, m.ID)
 	return err
 }

@@ -25,7 +25,7 @@ func NewExampleController(db *sqlx.DB) *ExampleController {
 // GetAll handles GET /api/v1/examples with pagination
 func (ec *ExampleController) GetAll(c *gin.Context) {
 	// Get pagination parameters from query string
-	params := utils.GetFilterParams(c)
+	_ = utils.GetFilterParams(c)
 
 	// TODO: Implement your GetAll logic
 	// Example:
@@ -44,7 +44,7 @@ func (ec *ExampleController) GetAll(c *gin.Context) {
 // GetByID handles GET /api/v1/examples/:id
 func (ec *ExampleController) GetByID(c *gin.Context) {
 	idParam := c.Param("id")
-	id, err := strconv.Atoi(idParam)
+	_, err := strconv.Atoi(idParam)
 	if err != nil {
 		utils.Error(c, http.StatusBadRequest, "invalid_id", "Invalid example ID format", nil)
 		return
@@ -98,7 +98,7 @@ func (ec *ExampleController) Create(c *gin.Context) {
 // Update handles PUT /api/v1/examples/:id
 func (ec *ExampleController) Update(c *gin.Context) {
 	idParam := c.Param("id")
-	id, err := strconv.Atoi(idParam)
+	_, err := strconv.Atoi(idParam)
 	if err != nil {
 		utils.Error(c, http.StatusBadRequest, "invalid_id", "Invalid example ID format", nil)
 		return
@@ -117,7 +117,7 @@ func (ec *ExampleController) Update(c *gin.Context) {
 // Delete handles DELETE /api/v1/examples/:id
 func (ec *ExampleController) Delete(c *gin.Context) {
 	idParam := c.Param("id")
-	id, err := strconv.Atoi(idParam)
+	_, err := strconv.Atoi(idParam)
 	if err != nil {
 		utils.Error(c, http.StatusBadRequest, "invalid_id", "Invalid example ID format", nil)
 		return

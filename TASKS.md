@@ -52,9 +52,16 @@ Status: Tracking implementation progress berdasarkan `apiyangharusdibuattask.md`
 ## 🗄️ Infrastructure & Utilities
 
 - [x] **Task 14:** Setup database migrations and models for all tables
-- [ ] **Task 16:** Setup slug normalization utility function
+- [x] **Task 16:** Setup slug normalization utility function
 
 ---
+
+## ✅ Additional Tasks Completed
+
+- [x] **Seeder Task:** Create Admin/Root users and initial menus
+  - 4 admin users created (admin_pusat, admin_wilayah, admin_cabang, member)
+  - 4 navigation menus seeded (Beranda, Berita, Agenda, Direktori)
+  - Auto-seeding on application startup
 
 ## Notes
 - Mark tasks as `[x]` ketika sudah completed
