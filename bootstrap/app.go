@@ -64,6 +64,12 @@ func NewApplication() (*Application, error) {
 
 	log.Println("Database connection established successfully")
 
+	// Run migrations
+	migrator := database.NewMigrator(db.DB, "database/migrations")
+	if err := migrator.RunMigrations(); err != nil {
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
 	// Setup Redis connection
 	rdb, err := database.InitRedis(cfg)
 	if err != nil {
