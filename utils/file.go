@@ -21,7 +21,12 @@ const MaxAvatarSize = 5 * 1024 * 1024
 func GetStoragePath() string {
 	storagePath := os.Getenv("AVATAR_STORAGE_PATH")
 	if storagePath == "" {
-		storagePath = "./storage/avatars"  // fallback untuk development
+		// Try generic storage path first
+		if genPath := os.Getenv("STORAGE_BASE_PATH"); genPath != "" {
+			storagePath = filepath.Join(genPath, "avatars")
+		} else {
+			storagePath = "./storage/avatars"  // fallback untuk development
+		}
 	}
 	return storagePath
 }
@@ -55,9 +60,9 @@ func UploadAvatar(file *multipart.FileHeader, userID int64) (string, error) {
 	// Reset file pointer after reading for validation
 	src.Seek(0, 0)
 
-	// Get storage path from environment or use default
-	avatarDir := GetStoragePath()
-	log.Printf("Using avatar storage path: %s", avatarDir)
+	// Get storage path from environment with better fallback
+	avatarDir := getAvatarStoragePath()
+	log.Printf("[Avatar] Using storage path: %s", avatarDir)
 	
 	// Create avatars directory if it doesn't exist
 	if err := os.MkdirAll(avatarDir, 0755); err != nil {
@@ -82,19 +87,12 @@ func UploadAvatar(file *multipart.FileHeader, userID int64) (string, error) {
 		return "", fmt.Errorf("failed to save file: %v", err)
 	}
 
-	// Return relative URL path (use configured storage path prefix)
-	// This should match the API endpoint path
-	relativePath := strings.ReplaceAll(filePath, "\\", "/")
-	// If it's an absolute path, convert to relative for API response
-	if strings.HasPrefix(relativePath, "/app") {
-		relativePath = strings.TrimPrefix(relativePath, "/app")
-	}
-	if !strings.HasPrefix(relativePath, "/") {
-		relativePath = "/" + relativePath
-	}
+	// Return API endpoint URL (not storage path)
+	// Format: /api/v1/files/avatar/{filename}
+	apiURL := fmt.Sprintf("/api/v1/files/avatar/%s", filename)
 	
-	log.Printf("Avatar uploaded successfully: %s", relativePath)
-	return relativePath, nil
+	log.Printf("Avatar uploaded successfully: %s (stored at: %s)", apiURL, filePath)
+	return apiURL, nil
 }
 
 // DeleteAvatar deletes an avatar file
@@ -106,32 +104,65 @@ func DeleteAvatar(avatarPath string) error {
 	// Build full path from storage directory
 	storagePath := GetStoragePath()
 	
-	// If path is relative, join with storage path
-	fullPath := avatarPath
-	if !strings.HasPrefix(avatarPath, "/") && !strings.HasPrefix(avatarPath, storagePath) {
-		fullPath = filepath.Join(storagePath, avatarPath)
-	} else if strings.HasPrefix(avatarPath, "/storage") {
-		// Convert API path to actual storage path
-		// /storage/avatars/avatar_1.jpg → {STORAGE_PATH}/avatar_1.jpg
+	// Extract filename from various path formats
+	var fullPath string
+	
+	// Format 1: API URL /api/v1/files/avatar/avatar_1_xxx.jpg
+	if strings.HasPrefix(avatarPath, "/api/v1/files/avatar/") {
 		filename := filepath.Base(avatarPath)
 		fullPath = filepath.Join(storagePath, filename)
+		log.Printf("[Avatar] Converting API URL to storage path: %s → %s", avatarPath, fullPath)
+	} else if strings.HasPrefix(avatarPath, "/storage/avatars/") {
+		// Format 2: Old storage path /storage/avatars/avatar_1_xxx.jpg
+		filename := filepath.Base(avatarPath)
+		fullPath = filepath.Join(storagePath, filename)
+		log.Printf("[Avatar] Converting storage path to full path: %s → %s", avatarPath, fullPath)
+	} else if !strings.ContainsAny(avatarPath, "/\\") {
+		// Format 3: Just filename avatar_1_xxx.jpg
+		fullPath = filepath.Join(storagePath, avatarPath)
+		log.Printf("[Avatar] Using filename with storage path: %s", fullPath)
+	} else {
+		// Format 4: Absolute or relative path
+		fullPath = avatarPath
+		log.Printf("[Avatar] Using as-is path: %s", fullPath)
 	}
 
-	log.Printf("Attempting to delete avatar: %s (from storage: %s)", fullPath, storagePath)
+	log.Printf("[Avatar] Attempting to delete: %s", fullPath)
 
 	// Check if file exists
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-		log.Printf("Avatar file does not exist: %s", fullPath)
+		log.Printf("[Avatar] File does not exist (OK): %s", fullPath)
 		return nil // File doesn't exist, no error
 	}
 
 	// Delete file
 	if err := os.Remove(fullPath); err != nil {
+		log.Printf("[Avatar] Error deleting file: %v", err)
 		return fmt.Errorf("failed to delete avatar file: %v", err)
 	}
 
-	log.Printf("Avatar deleted successfully: %s", fullPath)
+	log.Printf("[Avatar] Deleted successfully: %s", fullPath)
 	return nil
+}
+
+// getAvatarStoragePath returns the avatar storage path with detailed logging
+func getAvatarStoragePath() string {
+	// Check specific avatar path first
+	if avatarPath := os.Getenv("AVATAR_STORAGE_PATH"); avatarPath != "" {
+		log.Printf("[Avatar] Found AVATAR_STORAGE_PATH env var: %s", avatarPath)
+		return avatarPath
+	}
+
+	// Check generic storage path
+	if basePath := os.Getenv("STORAGE_BASE_PATH"); basePath != "" {
+		path := filepath.Join(basePath, "avatars")
+		log.Printf("[Avatar] Using STORAGE_BASE_PATH with /avatars: %s", path)
+		return path
+	}
+
+	// Default fallback
+	log.Printf("[Avatar] Using default fallback path: ./storage/avatars")
+	return "./storage/avatars"
 }
 
 // isAllowedMimeType checks if MIME type is allowed

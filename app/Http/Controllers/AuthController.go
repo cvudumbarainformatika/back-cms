@@ -3,7 +3,6 @@ package controllers
 import (
 	"database/sql"
 	"net/http"
-	"strconv"
 	"strings"
 
 	requests "github.com/cvudumbarainformatika/backend/app/Http/Requests"
@@ -192,12 +191,24 @@ func (ac *AuthController) Me(c *gin.Context) {
 		return
 	}
 
+	// Helper function to get string value
+	getStringValue := func(ns sql.NullString) string {
+		if ns.Valid {
+			return ns.String
+		}
+		return ""
+	}
+
 	utils.Success(c, http.StatusOK, "User information retrieved successfully", gin.H{
-		"id":    user.ID,
-		"name":  user.Name,
-		"email": user.Email,
-		"role":  user.Role,
-		"status": user.Status,
+		"id":         user.ID,
+		"name":       user.Name,
+		"email":      user.Email,
+		"phone":      getStringValue(user.Phone),
+		"address":    getStringValue(user.Address),
+		"bio":        getStringValue(user.Bio),
+		"avatar":     getStringValue(user.Avatar),
+		"role":       user.Role,
+		"status":     user.Status,
 		"created_at": user.CreatedAt,
 		"updated_at": user.UpdatedAt,
 	})
@@ -242,7 +253,7 @@ func (ac *AuthController) Logout(c *gin.Context) {
 	// In a simple JWT implementation, logout is typically handled client-side
 	// by removing the token from storage. However, this endpoint can be used
 	// to invalidate tokens server-side by storing them in a blacklist (e.g., Redis)
-	
+
 	utils.Success(c, http.StatusOK, "Logout successful", gin.H{})
 }
 
@@ -324,13 +335,6 @@ func (ac *AuthController) UpdateProfile(c *gin.Context) {
 		return ""
 	}
 
-	// Build avatar URL
-	avatarURL := ""
-	if user.Avatar.Valid && user.Avatar.String != "" {
-		// Use secure endpoint instead of direct static file path
-		avatarURL = "/api/v1/avatars/" + strconv.FormatInt(user.ID, 10)
-	}
-
 	utils.Success(c, http.StatusOK, "Profile updated successfully", gin.H{
 		"id":         user.ID,
 		"name":       user.Name,
@@ -338,8 +342,7 @@ func (ac *AuthController) UpdateProfile(c *gin.Context) {
 		"phone":      getStringValue(user.Phone),
 		"address":    getStringValue(user.Address),
 		"bio":        getStringValue(user.Bio),
-		"avatar":     avatarURL,
-		"avatar_path": getStringValue(user.Avatar), // Optional: raw path for debugging
+		"avatar":     getStringValue(user.Avatar), // Already contains API endpoint URL
 		"role":       user.Role,
 		"status":     user.Status,
 		"created_at": user.CreatedAt,

@@ -22,10 +22,26 @@ func (r *UpdateProfileRequest) Validate(c *gin.Context) error {
 
 	// Handle JSON request
 	if contentType == "application/json" {
-		if err := c.ShouldBindJSON(r); err != nil {
+		// For JSON, we only parse form fields (not Avatar)
+		type jsonRequest struct {
+			Name    string `json:"name" binding:"required,min=1,max=255"`
+			Phone   string `json:"phone" binding:"max=20"`
+			Address string `json:"address" binding:"max=500"`
+			Bio     string `json:"bio" binding:"max=1000"`
+		}
+
+		var req jsonRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
 			utils.ValidationError(c, err.Error())
 			return err
 		}
+
+		// Copy values
+		r.Name = req.Name
+		r.Phone = req.Phone
+		r.Address = req.Address
+		r.Bio = req.Bio
+		r.Avatar = nil // No file in JSON request
 	} else {
 		// Handle form data (multipart or urlencoded)
 		if err := c.ShouldBind(r); err != nil {
