@@ -102,3 +102,7 @@ docker-compose.override.yml
 # Custom local files
 .local/
 custom/
+
+# Storage directories (user uploaded files)
+storage/
+!storage/.gitkeep
