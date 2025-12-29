@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"database/sql"
 	"net/http"
+	"strconv"
 	"strings"
 
 	requests "github.com/cvudumbarainformatika/backend/app/Http/Requests"
@@ -242,4 +244,105 @@ func (ac *AuthController) Logout(c *gin.Context) {
 	// to invalidate tokens server-side by storing them in a blacklist (e.g., Redis)
 	
 	utils.Success(c, http.StatusOK, "Logout successful", gin.H{})
+}
+
+// UpdateProfile updates the current authenticated user's profile
+// PUT /api/v1/auth/profile
+// Supports both JSON and multipart/form-data requests
+func (ac *AuthController) UpdateProfile(c *gin.Context) {
+	var req requests.UpdateProfileRequest
+
+	// Validate request
+	if err := req.Validate(c); err != nil {
+		return
+	}
+
+	// Get user ID from JWT middleware context
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Error(c, http.StatusUnauthorized, "unauthorized", "User not authenticated", nil)
+		return
+	}
+
+	// Type assert to int64
+	userIDInt64, ok := userID.(int64)
+	if !ok {
+		utils.Error(c, http.StatusInternalServerError, "internal_error", "Invalid user ID format", nil)
+		return
+	}
+
+	// Fetch user from database
+	user, err := models.FindByID(ac.db, userIDInt64)
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to retrieve user", nil)
+		return
+	}
+
+	if user == nil {
+		utils.Error(c, http.StatusNotFound, "user_not_found", "User not found", nil)
+		return
+	}
+
+	// Handle avatar: file upload takes precedence over JSON string
+	if req.Avatar != nil {
+		// Delete old avatar if exists
+		if user.Avatar.Valid && user.Avatar.String != "" {
+			utils.DeleteAvatar(user.Avatar.String)
+		}
+
+		// Upload new avatar
+		avatarPath, err := utils.UploadAvatar(req.Avatar, userIDInt64)
+		if err != nil {
+			utils.Error(c, http.StatusBadRequest, "upload_error", "Failed to upload avatar: "+err.Error(), nil)
+			return
+		}
+		user.Avatar.String = avatarPath
+		user.Avatar.Valid = true
+	}
+	// If no file upload, avatar field from JSON stays as is (can be empty string or existing URL)
+
+	// Update user profile fields
+	user.Name = req.Name
+	user.Phone.String = req.Phone
+	user.Phone.Valid = req.Phone != ""
+	user.Address.String = req.Address
+	user.Address.Valid = req.Address != ""
+	user.Bio.String = req.Bio
+	user.Bio.Valid = req.Bio != ""
+
+	// Save updated user
+	if err := user.UpdateProfile(ac.db); err != nil {
+		utils.Error(c, http.StatusInternalServerError, "update_error", "Failed to update profile", nil)
+		return
+	}
+
+	// Helper function to get string value
+	getStringValue := func(ns sql.NullString) string {
+		if ns.Valid {
+			return ns.String
+		}
+		return ""
+	}
+
+	// Build avatar URL
+	avatarURL := ""
+	if user.Avatar.Valid && user.Avatar.String != "" {
+		// Use secure endpoint instead of direct static file path
+		avatarURL = "/api/v1/avatars/" + strconv.FormatInt(user.ID, 10)
+	}
+
+	utils.Success(c, http.StatusOK, "Profile updated successfully", gin.H{
+		"id":         user.ID,
+		"name":       user.Name,
+		"email":      user.Email,
+		"phone":      getStringValue(user.Phone),
+		"address":    getStringValue(user.Address),
+		"bio":        getStringValue(user.Bio),
+		"avatar":     avatarURL,
+		"avatar_path": getStringValue(user.Avatar), // Optional: raw path for debugging
+		"role":       user.Role,
+		"status":     user.Status,
+		"created_at": user.CreatedAt,
+		"updated_at": user.UpdatedAt,
+	})
 }

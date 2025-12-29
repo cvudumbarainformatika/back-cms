@@ -54,6 +54,21 @@ services:
       APP_ENV: production
       DB_HOST: mysql
       REDIS_HOST: redis
+      # Storage paths for all file types
+      AVATAR_STORAGE_PATH: /app/storage/avatars
+      STORAGE_THUMBNAILS_PATH: /app/storage/thumbnails
+      STORAGE_BERITA_PATH: /app/storage/berita
+      STORAGE_DOKUMEN_PATH: /app/storage/dokumen
+      STORAGE_GALERI_PATH: /app/storage/galeri
+      STORAGE_ATTACHMENT_PATH: /app/storage/attachments
+    volumes:
+      # Storage volumes for different file types - persistent across container rebuilds
+      - avatars_prod_data:/app/storage/avatars
+      - thumbnails_prod_data:/app/storage/thumbnails
+      - berita_prod_data:/app/storage/berita
+      - dokumen_prod_data:/app/storage/dokumen
+      - galeri_prod_data:/app/storage/galeri
+      - attachments_prod_data:/app/storage/attachments
     depends_on:
       mysql:
         condition: service_healthy
@@ -70,6 +85,13 @@ services:
 volumes:
   mysql_prod_data:
   redis_prod_data:
+  # Storage volumes for different file types - persistent across container lifecycle
+  avatars_prod_data:
+  thumbnails_prod_data:
+  berita_prod_data:
+  dokumen_prod_data:
+  galeri_prod_data:
+  attachments_prod_data:
 
 networks:
   backend_shared:

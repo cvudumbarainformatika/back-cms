@@ -52,6 +52,11 @@ func NewApplication() (*Application, error) {
 	// Error handler
 	router.Use(exceptions.ErrorHandler())
 
+	// Note: File serving is now handled via API endpoints:
+	// GET /api/v1/files/:file_type/:filename
+	// This provides security validation and access control
+	// instead of direct static file access
+
 	// Setup database connection
 	db, err := database.NewDatabase(cfg.Database)
 	if err != nil {

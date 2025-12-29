@@ -13,6 +13,8 @@ import (
 func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *config.Config) {
 	// Initialize controllers
 	authController := controllers.NewAuthController(db, cfg)
+	avatarController := controllers.NewAvatarController()
+	fileController := controllers.NewFileController()
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -28,6 +30,23 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			auth.POST("/logout", authController.Logout)
 		}
 
+		// Avatar routes (public or protected based on config)
+		avatars := v1.Group("/avatars")
+		{
+			// Public access to avatars by user ID or filename
+			avatars.GET("/:user_id", avatarController.GetAvatar)
+			avatars.GET("/file/:filename", avatarController.GetAvatarByName)
+		}
+
+		// Generic file routes (for all file types)
+		files := v1.Group("/files")
+		{
+			// Serve files: GET /api/v1/files/:file_type/:filename
+			files.GET("/:file_type/:filename", fileController.ServeFile)
+			// List files (admin): GET /api/v1/files/:file_type/list
+			files.GET("/:file_type/list", fileController.ListFiles)
+		}
+
 		// ==============================
 		// Protected Routes (JWT Required)
 		// ==============================
@@ -38,6 +57,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			auth := protected.Group("/auth")
 			{
 				auth.GET("/me", authController.Me)
+				auth.PUT("/profile", authController.UpdateProfile)
 			}
 
 			// TODO: Add your protected routes here
