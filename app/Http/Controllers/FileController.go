@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,9 +40,12 @@ func (fc *FileController) ServeFile(c *gin.Context) {
 
 	// Validate filename format (prevent directory traversal)
 	if !isValidFilename(filename) {
+		fmt.Printf("[FileController] Invalid filename format: %s\n", filename)
 		utils.Error(c, http.StatusForbidden, "invalid_filename", "Invalid filename format", nil)
 		return
 	}
+	
+	fmt.Printf("[FileController] Serving file: type=%s, filename=%s\n", fileType, filename)
 
 	// Get storage path (lazy loaded from environment)
 	storagePath := utils.GetStoragePathForConfig(config)

@@ -45,20 +45,23 @@ func UploadAvatar(file *multipart.FileHeader, userID int64) (string, error) {
 	}
 	defer src.Close()
 
-	// Validate MIME type
-	buffer := make([]byte, 512)
-	_, err = src.Read(buffer)
-	if err != nil && err != io.EOF {
+	// Read ALL file content into memory first
+	fileContent, err := io.ReadAll(src)
+	if err != nil {
 		return "", fmt.Errorf("failed to read file: %v", err)
 	}
 
+	if len(fileContent) == 0 {
+		return "", fmt.Errorf("uploaded file is empty")
+	}
+
+	log.Printf("[Avatar] File content read: %d bytes", len(fileContent))
+
+	// Validate MIME type from Content-Type header
 	mimeType := file.Header.Get("Content-Type")
 	if !isAllowedMimeType(mimeType) {
 		return "", fmt.Errorf("file type not allowed. Allowed types: jpeg, png, gif, webp")
 	}
-
-	// Reset file pointer after reading for validation
-	src.Seek(0, 0)
 
 	// Get storage path from environment with better fallback
 	avatarDir := getAvatarStoragePath()
@@ -78,20 +81,46 @@ func UploadAvatar(file *multipart.FileHeader, userID int64) (string, error) {
 	// Create destination file
 	dst, err := os.Create(filePath)
 	if err != nil {
+		log.Printf("[Avatar] ERROR creating file %s: %v", filePath, err)
 		return "", fmt.Errorf("failed to create destination file: %v", err)
 	}
 	defer dst.Close()
 
-	// Copy file content
-	if _, err := io.Copy(dst, src); err != nil {
+	log.Printf("[Avatar] File created successfully: %s", filePath)
+
+	// Write file content to disk
+	bytesCopied, err := dst.Write(fileContent)
+	if err != nil {
+		log.Printf("[Avatar] ERROR writing file content: %v (bytes written: %d)", err, bytesCopied)
 		return "", fmt.Errorf("failed to save file: %v", err)
+	}
+
+	log.Printf("[Avatar] File content written successfully: %d bytes", bytesCopied)
+
+	// Flush to disk
+	if err := dst.Sync(); err != nil {
+		log.Printf("[Avatar] WARNING: Failed to sync file: %v", err)
+	}
+
+	// Verify file exists and has content
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		log.Printf("[Avatar] ERROR: File not found after creation: %v", err)
+		return "", fmt.Errorf("file verification failed: %v", err)
+	}
+
+	log.Printf("[Avatar] File verified: %s (size: %d bytes)", filePath, fileInfo.Size())
+
+	if fileInfo.Size() == 0 {
+		log.Printf("[Avatar] ERROR: File is empty! Size: 0 bytes")
+		return "", fmt.Errorf("uploaded file is empty")
 	}
 
 	// Return API endpoint URL (not storage path)
 	// Format: /api/v1/files/avatar/{filename}
 	apiURL := fmt.Sprintf("/api/v1/files/avatar/%s", filename)
 	
-	log.Printf("Avatar uploaded successfully: %s (stored at: %s)", apiURL, filePath)
+	log.Printf("[Avatar] SUCCESS: Avatar uploaded: %s (stored at: %s, size: %d bytes)", apiURL, filePath, fileInfo.Size())
 	return apiURL, nil
 }
 

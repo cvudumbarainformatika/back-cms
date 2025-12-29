@@ -89,7 +89,14 @@ var FileUploadConfigs = map[FileUploadType]FileUploadConfig{
 
 // getStoragePathForType returns the storage path for a file type from environment (lazy loaded)
 func getStoragePathForType(fileType string) string {
-	envVar := fmt.Sprintf("STORAGE_%s_PATH", strings.ToUpper(fileType))
+	// Special case untuk avatar (legacy name: AVATAR_STORAGE_PATH, bukan STORAGE_AVATAR_PATH)
+	var envVar string
+	if fileType == "avatar" {
+		envVar = "AVATAR_STORAGE_PATH"
+	} else {
+		envVar = fmt.Sprintf("STORAGE_%s_PATH", strings.ToUpper(fileType))
+	}
+	
 	storagePath := os.Getenv(envVar)
 	if storagePath == "" {
 		// Fallback to base storage path
