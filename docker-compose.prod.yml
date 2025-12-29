@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: api-mysql-prod
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "33066:3306"   # ← EXPOSE PORT!!
+    volumes:
+      - mysql_prod_data:/var/lib/mysql
+    networks:
+      - backend_shared
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: api-redis-prod
+    restart: always
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - backend_shared
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Go Application (Production)
+  app:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    image: starter-api:prod
+    container_name: api-go-prod
+    restart: always
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    env_file:
+      - .env.production
+    environment:
+      # Non-secret, structural configuration
+      APP_ENV: production
+      DB_HOST: mysql
+      REDIS_HOST: redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend_shared
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  mysql_prod_data:
+  redis_prod_data:
+
+networks:
+  backend_shared:
+    driver: bridge

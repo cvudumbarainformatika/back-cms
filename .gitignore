@@ -1,0 +1,103 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.so.*
+*.dylib
+*.test
+*.out
+
+# Dependency directories
+vendor/
+node_modules/
+
+# Go build cache
+.cache/
+*.o
+*.a
+*.so
+
+# Output of the go coverage tool
+*.out
+coverage.out
+*.cover
+
+# Dependency files
+go.sum
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.iml
+.gradle/
+build/
+
+# Build output
+/bin/
+/dist/
+main
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local development
+.air.toml
+.env.development
+.env.test
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Testing
+.coverage/
+.test_cache/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Generated files
+generated/
+
+# Docker
+docker-compose.override.yml
+
+# Custom local files
+.local/
+custom/
