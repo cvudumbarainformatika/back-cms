@@ -7,12 +7,12 @@ services:
     container_name: starter-api-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: secret
-      MYSQL_DATABASE: starter_kit
-      MYSQL_USER: starter
-      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: sasa0102
+      MYSQL_DATABASE: sasacms
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: sasa0102
     ports:
-      - "33066:3306"
+      - "33067:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:

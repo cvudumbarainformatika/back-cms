@@ -72,15 +72,15 @@ reset-starter:
 
 docker-build:
 	@echo "Building Docker image..."
-	docker-compose build
+	docker compose build
 	@echo "✓ Docker image built"
 
 docker-run:
 	@echo "Starting Docker containers..."
-	docker-compose up -d
+	docker compose up -d
 	@echo "✓ Containers started"
 
 docker-stop:
 	@echo "Stopping Docker containers..."
-	docker-compose down
+	docker compose down
 	@echo "✓ Containers stopped"

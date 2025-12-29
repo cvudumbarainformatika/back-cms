@@ -3,7 +3,7 @@
 ## Project Summary
 This is a backend RESTful API server for the Juwita tourism information system built with Go using the Gin framework. It's designed as a standalone API server with JWT authentication, MySQL/PostgreSQL support, and Docker integration.
 
-The backend follows the API starter kit template found at `github.com/yourusername/go-gin-restful-api-starter-kit`, which implements a Laravel-inspired project structure with clean separation of concerns.
+The backend follows the API starter kit template found at `github.com/yourusername/go-gin-restful-api-starter-kit-go`, which implements a Laravel-inspired project structure with clean separation of concerns.
 
 ## Technologies & Dependencies
 - **Language**: Go 1.23+

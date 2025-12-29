@@ -19,7 +19,7 @@ Anda akan diminta untuk input nama dan email. Script akan:
 
 ### 2. Push ke GitHub/GitLab
 ```bash
-git remote add origin https://github.com/yourusername/starter-kit.git
+git remote add origin https://github.com/yourusername/starter-kit-go.git
 git branch -M main
 git push -u origin main
 ```
@@ -51,7 +51,7 @@ Setiap kali membuat project baru:
 
 ### Step 1: Clone
 ```bash
-git clone https://github.com/yourusername/starter-kit.git my-new-project
+git clone https://github.com/yourusername/starter-kit-go.git my-new-project
 cd my-new-project
 ```
 

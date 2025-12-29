@@ -35,7 +35,7 @@ A production-ready, clean Go Gin REST API starter kit with complete authenticati
 
 1. **Clone or initialize the starter kit**
 ```bash
-git clone <your-starter-kit-url>
+git clone <your-starter-kit-go-url>
 cd your-project
 ```
 

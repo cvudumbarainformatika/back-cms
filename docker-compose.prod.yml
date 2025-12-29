@@ -12,7 +12,7 @@ services:
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "33066:3306"   # ← EXPOSE PORT!!
+      - "33067:3306"   # ← EXPOSE PORT!!
     volumes:
       - mysql_prod_data:/var/lib/mysql
     networks:

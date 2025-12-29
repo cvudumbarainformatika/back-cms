@@ -50,7 +50,7 @@ Ini adalah dokumentasi lengkap untuk menggunakan folder ini sebagai Go Backend s
 
 ### Step 1: Clone This Starter Kit
 ```bash
-git clone <your-starter-kit-repo> my-new-project
+git clone <your-starter-kit-go-repo> my-new-project
 cd my-new-project
 ```
 
