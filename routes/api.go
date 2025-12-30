@@ -15,6 +15,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	authController := controllers.NewAuthController(db, cfg)
 	avatarController := controllers.NewAvatarController()
 	fileController := controllers.NewFileController()
+	userController := controllers.NewUserController(db)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -58,18 +59,19 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			{
 				auth.GET("/me", authController.Me)
 				auth.PUT("/profile", authController.UpdateProfile)
+				auth.POST("/profile/change-password", authController.ChangePassword)
 			}
 
-			// TODO: Add your protected routes here
-			// Example: User CRUD routes
-			// users := protected.Group("/users")
-			// {
-			//     users.GET("/get-list", userController.GetAllUsers)
-			//     users.GET("/:id", userController.GetUserByID)
-			//     users.POST("/create", userController.CreateUser)
-			//     users.PUT("/update/:id", userController.UpdateUser)
-			//     users.DELETE("/delete/:id", userController.DeleteUser)
-			// }
+			// User Management routes (Admin only)
+			users := protected.Group("/users")
+			{
+				users.GET("/get-lists", userController.GetList)
+				users.GET("/:id", userController.GetByID)
+				users.POST("/create", userController.Create)
+				users.PUT("update/:id", userController.Update)
+				users.PATCH("patch/:id", userController.Patch)
+				users.DELETE("delete/:id", userController.Delete)
+			}
 		}
 	}
 

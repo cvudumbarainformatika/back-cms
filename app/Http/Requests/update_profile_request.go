@@ -12,6 +12,7 @@ type UpdateProfileRequest struct {
 	Phone   string                `json:"phone" form:"phone" binding:"max=20"`
 	Address string                `json:"address" form:"address" binding:"max=500"`
 	Bio     string                `json:"bio" form:"bio" binding:"max=1000"`
+	Cabang  string                `json:"cabang" form:"cabang" binding:"max=255"`
 	Avatar  *multipart.FileHeader `form:"avatar"`
 }
 
@@ -28,6 +29,7 @@ func (r *UpdateProfileRequest) Validate(c *gin.Context) error {
 			Phone   string `json:"phone" binding:"max=20"`
 			Address string `json:"address" binding:"max=500"`
 			Bio     string `json:"bio" binding:"max=1000"`
+			Cabang  string `json:"cabang" binding:"max=255"`
 		}
 
 		var req jsonRequest
@@ -41,6 +43,7 @@ func (r *UpdateProfileRequest) Validate(c *gin.Context) error {
 		r.Phone = req.Phone
 		r.Address = req.Address
 		r.Bio = req.Bio
+		r.Cabang = req.Cabang
 		r.Avatar = nil // No file in JSON request
 	} else {
 		// Handle form data (multipart or urlencoded)

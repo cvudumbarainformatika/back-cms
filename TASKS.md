@@ -12,7 +12,22 @@ Status: Tracking implementation progress berdasarkan `apiyangharusdibuattask.md`
 
 ## 👥 User Management
 
-- [ ] **Task 2:** Implement User Management Endpoints (GET, POST, PUT, PATCH, DELETE)
+- [x] **Task 2:** Implement User Management Endpoints (GET, POST, PUT, PATCH, DELETE)
+  - ✅ **Status:** COMPLETED dengan perbaikan
+  - **Endpoints yang sudah tersedia:**
+    - `GET /api/v1/users/get-lists?role=&search=&status=&page=&limit=` - GetList dengan filter
+    - `GET /api/v1/users/:id` - GetByID
+    - `POST /api/v1/users/create` - Create
+    - `PUT /api/v1/users/update/:id` - Update (semua field)
+    - `PATCH /api/v1/users/patch/:id` - Patch (hanya role/status)
+    - `DELETE /api/v1/users/delete/:id` - Delete (soft delete)
+  - **Perbaikan yang sudah dilakukan:**
+    - ✅ Response format sudah sesuai: `{ success, data: { items, pagination }, message }`
+    - ✅ Menggunakan utility functions: `GetFilterParams()` dan `OffsetPaginate()`
+    - ✅ Support filter: role, status, search (q parameter)
+    - ✅ Pagination: page, limit dengan standard format
+    - ✅ Include field cabang di semua responses
+    - ✅ Endpoint format konsisten: `/get-lists`, `/create`, `/update/:id`, `/patch/:id`, `/delete/:id`
 
 ## 📰 Berita / News
 

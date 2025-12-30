@@ -15,6 +15,7 @@ type User struct {
 	Password  string         `db:"password" json:"-"` // Don't expose password in responses
 	Role      string         `db:"role" json:"role"`
 	Status    string         `db:"status" json:"status"` // active, inactive, suspended
+	Cabang    sql.NullString `db:"cabang" json:"cabang"` // Branch/office location
 	Phone     sql.NullString `db:"phone" json:"phone"`
 	Address   sql.NullString `db:"address" json:"address"`
 	Bio       sql.NullString `db:"bio" json:"bio"`
@@ -35,10 +36,10 @@ func (u *User) Create(db *sqlx.DB) error {
 	}
 
 	query := `
-		INSERT INTO users (name, email, password, role, status, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO users (name, email, password, role, status, cabang, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	result, err := db.Exec(query, u.Name, u.Email, u.Password, u.Role, u.Status, u.CreatedAt, u.UpdatedAt)
+	result, err := db.Exec(query, u.Name, u.Email, u.Password, u.Role, u.Status, u.Cabang.String, u.CreatedAt, u.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -54,7 +55,7 @@ func (u *User) Create(db *sqlx.DB) error {
 // FindByEmail finds a user by email
 func FindByEmail(db *sqlx.DB, email string) (*User, error) {
 	user := &User{}
-	query := `SELECT id, name, email, password, role, status, phone, address, bio, avatar, created_at, updated_at FROM users WHERE email = ?`
+	query := `SELECT id, name, email, password, role, status, cabang, phone, address, bio, avatar, created_at, updated_at FROM users WHERE email = ?`
 	err := db.Get(user, query, email)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -68,7 +69,7 @@ func FindByEmail(db *sqlx.DB, email string) (*User, error) {
 // FindByID finds a user by ID
 func FindByID(db *sqlx.DB, id int64) (*User, error) {
 	user := &User{}
-	query := `SELECT id, name, email, password, role, status, phone, address, bio, avatar, created_at, updated_at FROM users WHERE id = ?`
+	query := `SELECT id, name, email, password, role, status, cabang, phone, address, bio, avatar, created_at, updated_at FROM users WHERE id = ?`
 	err := db.Get(user, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -91,7 +92,7 @@ func GetAll(db *sqlx.DB, offset int, limit int) ([]User, int64, error) {
 	}
 
 	// Get paginated results
-	query := `SELECT id, name, email, password, role, status, phone, address, bio, avatar, created_at, updated_at FROM users WHERE status != 'deleted' ORDER BY created_at DESC LIMIT ? OFFSET ?`
+	query := `SELECT id, name, email, password, role, status, cabang, phone, address, bio, avatar, created_at, updated_at FROM users WHERE status != 'deleted' ORDER BY created_at DESC LIMIT ? OFFSET ?`
 	err := db.Select(&users, query, limit, offset)
 	if err != nil {
 		return nil, 0, err
@@ -105,10 +106,10 @@ func (u *User) Update(db *sqlx.DB) error {
 	u.UpdatedAt = time.Now()
 	query := `
 		UPDATE users 
-		SET name = ?, email = ?, role = ?, status = ?, phone = ?, address = ?, bio = ?, avatar = ?, updated_at = ?
+		SET name = ?, email = ?, role = ?, status = ?, cabang = ?, phone = ?, address = ?, bio = ?, avatar = ?, updated_at = ?
 		WHERE id = ?
 	`
-	_, err := db.Exec(query, u.Name, u.Email, u.Role, u.Status, u.Phone.String, u.Address.String, u.Bio.String, u.Avatar.String, u.UpdatedAt, u.ID)
+	_, err := db.Exec(query, u.Name, u.Email, u.Role, u.Status, u.Cabang.String, u.Phone.String, u.Address.String, u.Bio.String, u.Avatar.String, u.UpdatedAt, u.ID)
 	return err
 }
 
@@ -120,15 +121,15 @@ func (u *User) UpdatePassword(db *sqlx.DB, newPassword string) error {
 	return err
 }
 
-// UpdateProfile updates a user's profile information (name, phone, address, bio, avatar)
+// UpdateProfile updates a user's profile information (name, phone, address, bio, avatar, cabang)
 func (u *User) UpdateProfile(db *sqlx.DB) error {
 	u.UpdatedAt = time.Now()
 	query := `
 		UPDATE users 
-		SET name = ?, phone = ?, address = ?, bio = ?, avatar = ?, updated_at = ?
+		SET name = ?, phone = ?, address = ?, bio = ?, avatar = ?, cabang = ?, updated_at = ?
 		WHERE id = ?
 	`
-	_, err := db.Exec(query, u.Name, u.Phone.String, u.Address.String, u.Bio.String, u.Avatar.String, u.UpdatedAt, u.ID)
+	_, err := db.Exec(query, u.Name, u.Phone.String, u.Address.String, u.Bio.String, u.Avatar.String, u.Cabang.String, u.UpdatedAt, u.ID)
 	return err
 }
 
