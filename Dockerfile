@@ -39,8 +39,9 @@ RUN mkdir -p \
     /app/storage/attachments
 
 
-# Copy the binary from builder
+# Copy the binary and required assets from builder
 COPY --from=builder /app/main .
+COPY --from=builder /app/database/migrations ./database/migrations
 
 # Copy .env file if exists (optional, better to use env vars)
 # COPY .env .
