@@ -16,7 +16,7 @@ services:
     volumes:
       - mysql_prod_data:/var/lib/mysql
     networks:
-      - backend_shared
+      - app-network
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s
@@ -30,7 +30,7 @@ services:
     volumes:
       - redis_prod_data:/data
     networks:
-      - backend_shared
+      - app-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -63,36 +63,29 @@ services:
       STORAGE_ATTACHMENT_PATH: /app/storage/attachments
     volumes:
       # Storage volumes for different file types - persistent across container rebuilds
-      - avatars_prod_data:/app/storage/avatars
-      - thumbnails_prod_data:/app/storage/thumbnails
-      - berita_prod_data:/app/storage/berita
-      - dokumen_prod_data:/app/storage/dokumen
-      - galeri_prod_data:/app/storage/galeri
-      - attachments_prod_data:/app/storage/attachments
+      - /opt/apps/backend/storage:/app/storage
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
     networks:
-      - backend_shared
+      - app-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 5s
       timeout: 3s
       retries: 5
 
+
+
 volumes:
   mysql_prod_data:
   redis_prod_data:
   # Storage volumes for different file types - persistent across container lifecycle
-  avatars_prod_data:
-  thumbnails_prod_data:
-  berita_prod_data:
-  dokumen_prod_data:
-  galeri_prod_data:
-  attachments_prod_data:
+  storage_data:
 
 networks:
-  backend_shared:
-    driver: bridge
+  app-network:
+    external: true
+    name: app-network

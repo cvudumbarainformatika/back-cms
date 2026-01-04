@@ -4,9 +4,9 @@ set -u
 ###########################
 # CONFIG
 ###########################
-SERVER_USER="dev"
-SERVER_HOST="202.10.48.229"
-SERVER_DIR="/var/www/juwita"
+SERVER_USER="sasa"
+SERVER_HOST="192.168.33.2"
+SERVER_DIR="/opt/apps/backend"
 IMAGE_NAME="starter-api"
 IMAGE_TAG="prod"
 FULL_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
