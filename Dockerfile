@@ -25,7 +25,19 @@ FROM --platform=linux/amd64 alpine:latest
 # Install ca-certificates for HTTPS
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+# WORKDIR /root/
+# 🔑 GANTI workdir ke /app (penting)
+WORKDIR /app
+
+# 🔑 TAMBAHKAN INI
+RUN mkdir -p \
+    /app/storage/avatars \
+    /app/storage/thumbnails \
+    /app/storage/berita \
+    /app/storage/dokumen \
+    /app/storage/galeri \
+    /app/storage/attachments
+
 
 # Copy the binary from builder
 COPY --from=builder /app/main .
