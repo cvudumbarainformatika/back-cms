@@ -51,10 +51,16 @@ docker save -o "$IMAGE_TAR" "${FULL_IMAGE}" || {
   exit 1
 }
 
-# 4) Upload tar ke server
+# 4) Upload files ke server
 echo "-> Uploading image to ${SERVER_USER}@${SERVER_HOST}:${REMOTE_IMAGES_DIR}/"
 scp "$IMAGE_TAR" "${SERVER_USER}@${SERVER_HOST}:${REMOTE_IMAGES_DIR}/" || {
-  echo "❌ scp gagal" | tee -a "$LOGFILE"
+  echo "❌ scp image gagal" | tee -a "$LOGFILE"
+  exit 1
+}
+
+echo "-> Uploading config files (docker-compose, Dockerfile) to ${SERVER_USER}@${SERVER_HOST}:${BACKEND_DIR}/"
+scp "$COMPOSE_FILE" "Dockerfile" "${SERVER_USER}@${SERVER_HOST}:${BACKEND_DIR}/" || {
+  echo "❌ scp config gagal" | tee -a "$LOGFILE"
   exit 1
 }
 

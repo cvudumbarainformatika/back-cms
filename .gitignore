@@ -106,3 +106,9 @@ custom/
 # Storage directories (user uploaded files)
 storage/
 !storage/.gitkeep
+
+# Deployment scripts
+deploy.sh
+
+# Temporary deployment artifacts
+.deploy_tmp/
