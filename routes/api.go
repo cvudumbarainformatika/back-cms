@@ -16,6 +16,8 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	avatarController := controllers.NewAvatarController()
 	fileController := controllers.NewFileController()
 	userController := controllers.NewUserController(db)
+	beritaController := controllers.NewBeritaController(db)
+	uploadController := controllers.NewUploadController()
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -49,6 +51,16 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 		}
 
 		// ==============================
+		// Berita Routes (Public GET)
+		// ==============================
+		berita := v1.Group("/berita")
+		{
+			berita.GET("", beritaController.GetList)
+			berita.GET("/categories", beritaController.GetCategories)
+			berita.GET("/:slug", beritaController.GetBySlug)
+		}
+
+		// ==============================
 		// Protected Routes (JWT Required)
 		// ==============================
 		protected := v1.Group("/")
@@ -62,6 +74,9 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				auth.POST("/profile/change-password", authController.ChangePassword)
 			}
 
+			// Upload endpoint (protected)
+			protected.POST("/upload", uploadController.UploadFile)
+
 			// User Management routes (Admin only)
 			users := protected.Group("/users")
 			{
@@ -71,6 +86,15 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				users.PUT("update/:id", userController.Update)
 				users.PATCH("patch/:id", userController.Patch)
 				users.DELETE("delete/:id", userController.Delete)
+			}
+
+			// Berita Management routes (Admin only)
+			beritaAdmin := protected.Group("/berita")
+			{
+				beritaAdmin.POST("", beritaController.Create)
+				beritaAdmin.PUT("/:id", beritaController.Update)
+				beritaAdmin.PATCH("/:id", beritaController.Patch)
+				beritaAdmin.DELETE("/:id", beritaController.Delete)
 			}
 		}
 	}

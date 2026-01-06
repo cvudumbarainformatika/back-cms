@@ -53,7 +53,7 @@ func removeAccents(input string) string {
 	t := transform.Chain(norm.NFD, transform.RemoveFunc(func(r rune) bool {
 		return unicode.Is(unicode.Mn, r) // Mn = Nonspacing_Mark (accents)
 	}))
-	
+
 	result, _, _ := transform.String(t, input)
 	return result
 }
@@ -103,4 +103,10 @@ func ValidateSlug(slug string) bool {
 	// Check if it contains only valid characters
 	validSlugRegex := regexp.MustCompile("^[a-z0-9-]+$")
 	return validSlugRegex.MatchString(slug)
+}
+
+// GenerateSlug is an alias for NormalizeSlug for better readability
+// Creates a URL-friendly slug from a string
+func GenerateSlug(input string) string {
+	return NormalizeSlug(input)
 }
