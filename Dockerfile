@@ -22,8 +22,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 # Final stage
 FROM --platform=linux/amd64 alpine:latest
 
-# Install ca-certificates for HTTPS
-RUN apk --no-cache add ca-certificates
+# Install ca-certificates and curl for healthchecks
+RUN apk --no-cache add ca-certificates curl
 
 # WORKDIR /root/
 # 🔑 GANTI workdir ke /app (penting)
