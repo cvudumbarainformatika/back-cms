@@ -17,6 +17,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	fileController := controllers.NewFileController()
 	userController := controllers.NewUserController(db)
 	beritaController := controllers.NewBeritaController(db)
+	agendaController := controllers.NewAgendaController(db)
 	uploadController := controllers.NewUploadController()
 
 	// API v1 routes
@@ -61,6 +62,16 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 		}
 
 		// ==============================
+		// Agenda Routes (Public GET)
+		// ==============================
+		agenda := v1.Group("/agenda")
+		{
+			agenda.GET("", agendaController.GetList)
+			agenda.GET("/types", agendaController.GetTypes)
+			agenda.GET("/:slug", agendaController.GetBySlug)
+		}
+
+		// ==============================
 		// Protected Routes (JWT Required)
 		// ==============================
 		protected := v1.Group("/")
@@ -95,6 +106,15 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				beritaAdmin.PUT("/:id", beritaController.Update)
 				beritaAdmin.PATCH("/:id", beritaController.Patch)
 				beritaAdmin.DELETE("/:id", beritaController.Delete)
+			}
+
+			// Agenda Management routes (Admin only)
+			agendaAdmin := protected.Group("/agenda")
+			{
+				agendaAdmin.POST("", agendaController.Create)
+				agendaAdmin.PUT("/:id", agendaController.Update)
+				agendaAdmin.PATCH("/:id", agendaController.Patch)
+				agendaAdmin.DELETE("/:id", agendaController.Delete)
 			}
 		}
 	}
