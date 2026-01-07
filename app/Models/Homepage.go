@@ -1,127 +1,90 @@
 package models
 
 import (
-	"database/sql"
+	"database/sql/driver"
+	"encoding/json"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 )
 
-// Homepage represents the homepage configuration (single row)
+// Homepage represents the homepage content configuration
 type Homepage struct {
-	ID        int64      `db:"id" json:"id"`
-	Hero      string     `db:"hero" json:"hero"` // JSON
-	Stats     string     `db:"stats" json:"stats"` // JSON array
-	Features  string     `db:"features" json:"features"` // JSON array
-	SEO       string     `db:"seo" json:"seo"` // JSON
-	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
+	ID        int64     `db:"id" json:"id"`
+	Content   JSON      `db:"content" json:"content"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
-// GetHomepage retrieves the homepage configuration
+// JSON is a wrapper for handling JSON data in database
+type JSON map[string]interface{}
+
+// Value implements the driver.Valuer interface
+func (j JSON) Value() (driver.Value, error) {
+	if j == nil {
+		return nil, nil
+	}
+	return json.Marshal(j)
+}
+
+// Scan implements the sql.Scanner interface
+func (j *JSON) Scan(value interface{}) error {
+	if value == nil {
+		*j = nil
+		return nil
+	}
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
+		return json.Unmarshal(nil, j) // Should probably error out or just ignore
+	}
+	return json.Unmarshal(bytes, j)
+}
+
+// GetHomepage retrieves the homepage content
 func GetHomepage(db *sqlx.DB) (*Homepage, error) {
-	homepage := &Homepage{}
-	query := `SELECT id, hero, stats, features, seo, updated_at FROM homepage LIMIT 1`
-	err := db.Get(homepage, query)
+	var homepage Homepage
+	// We assume there's always one record with ID 1, or just the latest one
+	query := `SELECT id, content, created_at, updated_at FROM homepage ORDER BY id DESC LIMIT 1`
+	err := db.Get(&homepage, query)
+	return &homepage, err
+}
+
+// UpdateHomepage updates or creates the homepage content
+func UpdateHomepage(db *sqlx.DB, content map[string]interface{}) (*Homepage, error) {
+	// Convert content to JSON
+	contentJSON, err := json.Marshal(content)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
-	return homepage, nil
-}
 
-// Update updates the homepage configuration
-func (h *Homepage) Update(db *sqlx.DB) error {
-	h.UpdatedAt = time.Now()
-	
-	// Check if record exists
-	existing := &Homepage{}
-	query := `SELECT id FROM homepage LIMIT 1`
-	err := db.Get(existing, query)
-	
-	if err != nil && err != sql.ErrNoRows {
-		return err
+	// Upsert query (PostgreSQL specific, for MySQL use ON DUPLICATE KEY UPDATE)
+	// Since we are using MySQL (implied by previous context or standard setups), let's use MySQL syntax.
+	// But let's check if we just want to insert a new version every time or update single row.
+	// Let's assume single row single source of truth structure for CMS simplicity?
+	// actually standard is to UPDATE id=1 or INSERT if not exists.
+
+	// Check if exists
+	var count int
+	db.Get(&count, "SELECT COUNT(*) FROM homepage WHERE id = 1")
+
+	var query string
+	if count > 0 {
+		query = `UPDATE homepage SET content = ?, updated_at = NOW() WHERE id = 1`
+		_, err = db.Exec(query, contentJSON)
+	} else {
+		// Force ID 1
+		query = `INSERT INTO homepage (id, content, created_at, updated_at) VALUES (1, ?, NOW(), NOW())`
+		_, err = db.Exec(query, contentJSON)
 	}
-	
-	if err == sql.ErrNoRows {
-		// Insert new record
-		query := `INSERT INTO homepage (hero, stats, features, seo, updated_at) VALUES (?, ?, ?, ?, ?)`
-		result, err := db.Exec(query, h.Hero, h.Stats, h.Features, h.SEO, h.UpdatedAt)
-		if err != nil {
-			return err
-		}
-		
-		id, err := result.LastInsertId()
-		if err != nil {
-			return err
-		}
-		h.ID = id
-		return nil
-	}
-	
-	// Update existing record
-	query = `UPDATE homepage SET hero = ?, stats = ?, features = ?, seo = ?, updated_at = ? WHERE id = ?`
-	_, err = db.Exec(query, h.Hero, h.Stats, h.Features, h.SEO, h.UpdatedAt, existing.ID)
-	return err
-}
 
-// ProfilOrganisasi represents the organization profile
-type ProfilOrganisasi struct {
-	ID        int64      `db:"id" json:"id"`
-	VisiMisi  string     `db:"visi_misi" json:"visi_misi"`
-	Sejarah   string     `db:"sejarah" json:"sejarah"`
-	AdArt     string     `db:"ad_art" json:"ad_art"`
-	CreatedAt time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
-}
-
-// GetProfilOrganisasi retrieves the organization profile
-func GetProfilOrganisasi(db *sqlx.DB) (*ProfilOrganisasi, error) {
-	profil := &ProfilOrganisasi{}
-	query := `SELECT id, visi_misi, sejarah, ad_art, created_at, updated_at FROM profil_organisasi LIMIT 1`
-	err := db.Get(profil, query)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
-	return profil, nil
-}
 
-// Update updates the organization profile
-func (p *ProfilOrganisasi) Update(db *sqlx.DB) error {
-	p.UpdatedAt = time.Now()
-	
-	// Check if record exists
-	existing := &ProfilOrganisasi{}
-	query := `SELECT id FROM profil_organisasi LIMIT 1`
-	err := db.Get(existing, query)
-	
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
-	
-	if err == sql.ErrNoRows {
-		// Insert new record
-		p.CreatedAt = time.Now()
-		query := `INSERT INTO profil_organisasi (visi_misi, sejarah, ad_art, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
-		result, err := db.Exec(query, p.VisiMisi, p.Sejarah, p.AdArt, p.CreatedAt, p.UpdatedAt)
-		if err != nil {
-			return err
-		}
-		
-		id, err := result.LastInsertId()
-		if err != nil {
-			return err
-		}
-		p.ID = id
-		return nil
-	}
-	
-	// Update existing record
-	query = `UPDATE profil_organisasi SET visi_misi = ?, sejarah = ?, ad_art = ?, updated_at = ? WHERE id = ?`
-	_, err = db.Exec(query, p.VisiMisi, p.Sejarah, p.AdArt, p.UpdatedAt, existing.ID)
-	return err
+	return GetHomepage(db)
 }

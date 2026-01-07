@@ -19,6 +19,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	beritaController := controllers.NewBeritaController(db)
 	agendaController := controllers.NewAgendaController(db)
 	uploadController := controllers.NewUploadController()
+	homepageController := controllers.NewHomepageController(db)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -33,6 +34,9 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			auth.POST("/refresh", authController.Refresh)
 			auth.POST("/logout", authController.Logout)
 		}
+
+		// Homepage (Public)
+		v1.GET("/homepage", homepageController.Get)
 
 		// Avatar routes (public or protected based on config)
 		avatars := v1.Group("/avatars")
@@ -84,6 +88,9 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				auth.PUT("/profile", authController.UpdateProfile)
 				auth.POST("/profile/change-password", authController.ChangePassword)
 			}
+
+			// Homepage Management (Admin only)
+			protected.POST("/homepage", homepageController.Update)
 
 			// Upload endpoint (protected)
 			protected.POST("/upload", uploadController.UploadFile)
