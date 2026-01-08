@@ -9,20 +9,20 @@ import (
 
 // Menu represents a navigation menu item
 type Menu struct {
-	ID        int64      `db:"id" json:"id"`
-	Label     string     `db:"label" json:"label"`
-	Slug      string     `db:"slug" json:"slug"`
-	To        string     `db:"to" json:"to"`
-	Icon      string     `db:"icon" json:"icon"`
-	ParentID  *int64     `db:"parent_id" json:"parent_id"`
-	Position  string     `db:"position" json:"position"`
-	Order     int        `db:"order" json:"order"`
-	IsActive  bool       `db:"is_active" json:"is_active"`
-	IsFixed   bool       `db:"is_fixed" json:"is_fixed"`
-	Roles     string     `db:"roles" json:"roles"` // JSON array
-	CreatedAt time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
-	Children  []Menu     `db:"-" json:"children,omitempty"`
+	ID        int64     `db:"id" json:"id"`
+	Label     string    `db:"label" json:"label"`
+	Slug      string    `db:"slug" json:"slug"`
+	To        string    `db:"to" json:"to"`
+	Icon      string    `db:"icon" json:"icon"`
+	ParentID  *int64    `db:"parent_id" json:"parent_id"`
+	Position  string    `db:"position" json:"position"`
+	Order     int       `db:"order" json:"order"`
+	IsActive  bool      `db:"is_active" json:"is_active"`
+	IsFixed   bool      `db:"is_fixed" json:"is_fixed"`
+	Roles     string    `db:"roles" json:"roles"` // JSON array
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+	Children  []Menu    `db:"-" json:"children,omitempty"`
 }
 
 // Create creates a new menu record
@@ -61,7 +61,7 @@ func FindMenuByID(db *sqlx.DB, id int64) (*Menu, error) {
 // GetMenusByPosition retrieves all menus by position
 func GetMenusByPosition(db *sqlx.DB, position string) ([]Menu, error) {
 	var menus []Menu
-	query := "SELECT id, label, slug, `to`, icon, parent_id, position, `order`, is_active, is_fixed, roles, created_at, updated_at FROM menus WHERE position = ? AND is_active = TRUE ORDER BY `order` ASC"
+	query := "SELECT id, label, slug, `to`, icon, parent_id, position, `order`, is_active, is_fixed, roles, created_at, updated_at FROM menus WHERE position = ? ORDER BY `order` ASC"
 	err := db.Select(&menus, query, position)
 	return menus, err
 }

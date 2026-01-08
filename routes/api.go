@@ -20,6 +20,9 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	agendaController := controllers.NewAgendaController(db)
 	uploadController := controllers.NewUploadController()
 	homepageController := controllers.NewHomepageController(db)
+	menuController := controllers.NewMenuController(db)
+	contentController := controllers.NewContentController(db)
+	contentController.InitTable()
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -76,9 +79,23 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 		}
 
 		// ==============================
+		// Menu Routes (Public GET)
+		// ==============================
+		menus := v1.Group("/menus")
+		{
+			menus.GET("", menuController.GetMenusByPosition)
+			menus.GET("/:id", menuController.GetMenuByID)
+		}
+
+		// ==============================
+		// Content Routes (Public GET)
+		// ==============================
+		v1.GET("/dynamic-content/*slug", contentController.GetContentBySlug)
+
+		// ==============================
 		// Protected Routes (JWT Required)
 		// ==============================
-		protected := v1.Group("/")
+		protected := v1.Group("")
 		protected.Use(middleware.JWTAuthMiddleware(cfg.JWT.Secret))
 		{
 			// Auth protected routes
@@ -122,6 +139,19 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				agendaAdmin.PUT("/:id", agendaController.Update)
 				agendaAdmin.PATCH("/:id", agendaController.Patch)
 				agendaAdmin.DELETE("/:id", agendaController.Delete)
+			}
+
+			// Menu Management routes (Admin only)
+			menuAdmin := protected.Group("/menus")
+			{
+				menuAdmin.POST("", menuController.SaveMenus)
+				menuAdmin.DELETE("/:id", menuController.DeleteMenu)
+			}
+
+			// Content Management routes (Admin only)
+			contentAdmin := protected.Group("/dynamic-content")
+			{
+				contentAdmin.POST("", contentController.SaveContent)
 			}
 		}
 	}
