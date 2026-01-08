@@ -75,6 +75,8 @@ func (c *ContentController) GetContentBySlug(ctx *gin.Context) {
 	query := `SELECT * FROM content_pages WHERE slug = ? LIMIT 1`
 	err := c.DB.Get(&content, query, slug)
 
+	// fmt.Printf logs removed
+
 	if err == sql.ErrNoRows {
 		// Return 404
 		utils.Error(ctx, http.StatusNotFound, "content_not_found", "Content not found", nil)

@@ -3,24 +3,25 @@ package utils
 import (
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-	"log"
 )
 
 // FileUploadType defines the type of file being uploaded
 type FileUploadType string
 
 const (
-	FileTypeAvatar        FileUploadType = "avatar"
-	FileTypeThumbnail     FileUploadType = "thumbnail"
-	FileTypeBerita        FileUploadType = "berita"
-	FileTypeDokumen       FileUploadType = "dokumen"
-	FileTypeGaleri        FileUploadType = "galeri"
-	FileTypeAttachment    FileUploadType = "attachment"
+	FileTypeAvatar     FileUploadType = "avatar"
+	FileTypeThumbnail  FileUploadType = "thumbnail"
+	FileTypeBerita     FileUploadType = "berita"
+	FileTypeDokumen    FileUploadType = "dokumen"
+	FileTypeGaleri     FileUploadType = "galeri"
+	FileTypeAttachment FileUploadType = "attachment"
+	FileTypeContent    FileUploadType = "content"
 )
 
 // FileUploadConfig contains configuration for each file type
@@ -62,6 +63,15 @@ var FileUploadConfigs = map[FileUploadType]FileUploadConfig{
 		ThumbWidth:   800,
 		ThumbHeight:  600,
 	},
+	FileTypeContent: {
+		FileType:     FileTypeContent,
+		MaxSize:      20 * 1024 * 1024, // 20MB
+		AllowedTypes: []string{"image/jpeg", "image/png", "image/webp"},
+		AllowedExts:  []string{".jpg", ".jpeg", ".png", ".webp"},
+		CreateThumb:  true,
+		ThumbWidth:   1200,
+		ThumbHeight:  630, // OG Image size optimized
+	},
 	FileTypeDokumen: {
 		FileType:     FileTypeDokumen,
 		MaxSize:      50 * 1024 * 1024, // 50MB
@@ -96,7 +106,7 @@ func getStoragePathForType(fileType string) string {
 	} else {
 		envVar = fmt.Sprintf("STORAGE_%s_PATH", strings.ToUpper(fileType))
 	}
-	
+
 	storagePath := os.Getenv(envVar)
 	if storagePath == "" {
 		// Fallback to base storage path
@@ -130,7 +140,7 @@ type UploadedFileInfo struct {
 
 // FileUploadService handles file uploads
 type FileUploadService struct {
-	config FileUploadConfig
+	config   FileUploadConfig
 	fileType FileUploadType
 }
 
@@ -142,7 +152,7 @@ func NewFileUploadService(fileType FileUploadType) (*FileUploadService, error) {
 	}
 
 	return &FileUploadService{
-		config: config,
+		config:   config,
 		fileType: fileType,
 	}, nil
 }
