@@ -4,8 +4,8 @@ set -u
 ###########################
 # CONFIG
 ###########################
-SERVER_USER="sasa"
-SERVER_HOST="192.168.33.2"
+SERVER_USER="pdpi"
+SERVER_HOST="103.49.239.185"
 SERVER_DIR="/opt/apps/backend"
 IMAGE_NAME="starter-api"
 IMAGE_TAG="prod"
@@ -59,7 +59,7 @@ scp "$IMAGE_TAR" "${SERVER_USER}@${SERVER_HOST}:${REMOTE_IMAGES_DIR}/" || {
 }
 
 echo "-> Uploading config files (docker-compose, Dockerfile) to ${SERVER_USER}@${SERVER_HOST}:${BACKEND_DIR}/"
-scp "$COMPOSE_FILE" "Dockerfile" "${SERVER_USER}@${SERVER_HOST}:${BACKEND_DIR}/" || {
+scp "$COMPOSE_FILE" "Dockerfile" "$ENV_FILE" "${SERVER_USER}@${SERVER_HOST}:${BACKEND_DIR}/" || {
   echo "❌ scp config gagal" | tee -a "$LOGFILE"
   exit 1
 }
