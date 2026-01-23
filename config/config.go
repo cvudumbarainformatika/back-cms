@@ -17,6 +17,7 @@ type Config struct {
 	RateLimit RateLimitConfig
 	CORS      CORSConfig
 	Redis     RedisConfig
+	PDPI      PDPIConfig
 }
 
 // AppConfig holds application-specific configuration
@@ -67,6 +68,13 @@ type RedisConfig struct {
 	DB       int
 }
 
+// PDPIConfig holds PDPI API configuration
+type PDPIConfig struct {
+	BaseURL string
+	APIKey  string
+	Timeout int // in seconds
+}
+
 // LoadConfig loads configuration from .env file and environment variables
 func LoadConfig() (*Config, error) {
 	// Load .env file if it exists (ignore error if file doesn't exist)
@@ -108,6 +116,11 @@ func LoadConfig() (*Config, error) {
 			Port:     getEnv("REDIS_PORT", "6379"),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvAsInt("REDIS_DB", 0),
+		},
+		PDPI: PDPIConfig{
+			BaseURL: getEnv("PDPI_BASE_URL", "https://zxlccvozsbjmwrjbwyrr.supabase.co/functions/v1"),
+			APIKey:  getEnv("PDPI_API_KEY", ""),
+			Timeout: getEnvAsInt("PDPI_TIMEOUT", 30),
 		},
 	}
 

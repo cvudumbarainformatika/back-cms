@@ -23,6 +23,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	menuController := controllers.NewMenuController(db)
 	contentController := controllers.NewContentController(db)
 	contentController.InitTable()
+	pdpiController := controllers.NewPDPIController(db, cfg)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -152,6 +153,15 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			contentAdmin := protected.Group("/dynamic-content")
 			{
 				contentAdmin.POST("", contentController.SaveContent)
+			}
+
+			// PDPI Integration routes (Protected)
+			pdpi := protected.Group("/pdpi")
+			{
+				pdpi.POST("/sync-member", pdpiController.SyncMember)
+				pdpi.GET("/members", pdpiController.GetMembers)
+				pdpi.GET("/member/:npa", pdpiController.GetMemberByNPA)
+				pdpi.GET("/me", pdpiController.GetMyMemberData)
 			}
 		}
 	}

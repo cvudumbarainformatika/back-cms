@@ -1,4 +1,4 @@
-.PHONY: help install run build test clean fmt lint deps-update setup-git reset-starter docker-build docker-run docker-stop
+.PHONY: help install run build test clean fmt lint deps-update migrate migrate-fresh setup-git reset-starter docker-build docker-run docker-stop
 
 help:
 	@echo "Go Gin Starter Kit - Available Commands"
@@ -11,6 +11,8 @@ help:
 	@echo "  make fmt            Format code"
 	@echo "  make lint           Run linter"
 	@echo "  make deps-update    Update dependencies"
+	@echo "  make migrate        Run all database migrations"
+	@echo "  make migrate-fresh  Drop all tables and re-run migrations"
 	@echo "  make setup-git      Initialize git repository"
 	@echo "  make reset-starter  Reset to clean starter kit state"
 	@echo "  make docker-build   Build Docker image"
@@ -59,6 +61,35 @@ deps-update:
 	go get -u ./...
 	go mod tidy
 	@echo "✓ Dependencies updated"
+
+migrate:
+	@echo "Running database migrations..."
+	@if [ ! -f .env ]; then \
+		echo "Error: .env file not found"; \
+		exit 1; \
+	fi
+	@echo "Loading environment variables..."
+	@export $$(grep -v '^#' .env | grep -v '^$$' | xargs) && \
+	echo "Connecting to Docker MySQL container..." && \
+	for file in database/migrations/*.sql; do \
+		echo "Migrating: $$file"; \
+		docker exec -i $$(docker ps -qf "name=mysql") mysql -u$$DB_USERNAME -p$$DB_PASSWORD $$DB_DATABASE < $$file || exit 1; \
+	done
+	@echo "✓ All migrations completed successfully"
+
+migrate-fresh:
+	@echo "WARNING: This will drop all tables and re-run migrations!"
+	@echo "Press Ctrl+C to cancel, or Enter to continue..."
+	@read confirm
+	@echo "Dropping all tables..."
+	@export $$(grep -v '^#' .env | grep -v '^$$' | xargs) && \
+	docker exec -i $$(docker ps -qf "name=mysql") mysql -u$$DB_USERNAME -p$$DB_PASSWORD $$DB_DATABASE -e "SET FOREIGN_KEY_CHECKS = 0; \
+		SELECT CONCAT('DROP TABLE IF EXISTS \`', table_name, '\`;') \
+		FROM information_schema.tables \
+		WHERE table_schema = '$$DB_DATABASE'; \
+		SET FOREIGN_KEY_CHECKS = 1;" | grep "DROP TABLE" | docker exec -i $$(docker ps -qf "name=mysql") mysql -u$$DB_USERNAME -p$$DB_PASSWORD $$DB_DATABASE || true
+	@echo "Running fresh migrations..."
+	@$(MAKE) migrate
 
 setup-git:
 	@echo "Setting up git repository..."
