@@ -37,6 +37,17 @@ services:
       timeout: 5s
       retries: 5
 
+  # Mailpit (Email Trap for Development)
+  mailpit:
+    image: axllent/mailpit
+    container_name: starter-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025" # UI
+      - "1025:1025" # SMTP
+    networks:
+      - starter-network
+
   # Go Application (Development with hot reload)
   app:
     build:

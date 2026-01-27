@@ -18,13 +18,15 @@ type Config struct {
 	CORS      CORSConfig
 	Redis     RedisConfig
 	PDPI      PDPIConfig
+	Mail      MailConfig
 }
 
 // AppConfig holds application-specific configuration
 type AppConfig struct {
-	Name string
-	Env  string
-	Port string
+	Name    string
+	Env     string
+	Port    string
+	BaseURL string
 }
 
 // DatabaseConfig holds database connection configuration
@@ -45,6 +47,14 @@ type JWTConfig struct {
 	Secret                 string
 	AccessTokenExpiration  int // in minutes
 	RefreshTokenExpiration int // in minutes
+}
+
+// MailConfig holds email configuration
+type MailConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
 }
 
 // RateLimitConfig holds rate limiting configuration
@@ -82,9 +92,10 @@ func LoadConfig() (*Config, error) {
 
 	config := &Config{
 		App: AppConfig{
-			Name: getEnv("APP_NAME", "Go Gin Starter Kit"),
-			Env:  getEnv("APP_ENV", "local"),
-			Port: getEnv("APP_PORT", "8080"),
+			Name:    getEnv("APP_NAME", "Go Gin Starter Kit"),
+			Env:     getEnv("APP_ENV", "local"),
+			Port:    getEnv("APP_PORT", "8080"),
+			BaseURL: getEnv("APP_URL", "http://localhost:8080"),
 		},
 		Database: DatabaseConfig{
 			Connection:      getEnv("DB_CONNECTION", "mysql"),
@@ -121,6 +132,12 @@ func LoadConfig() (*Config, error) {
 			BaseURL: getEnv("PDPI_BASE_URL", "https://zxlccvozsbjmwrjbwyrr.supabase.co/functions/v1"),
 			APIKey:  getEnv("PDPI_API_KEY", ""),
 			Timeout: getEnvAsInt("PDPI_TIMEOUT", 30),
+		},
+		Mail: MailConfig{
+			Host:     getEnv("MAIL_HOST", "smtp.gmail.com"),
+			Port:     getEnvAsInt("MAIL_PORT", 587),
+			User:     getEnv("MAIL_USER", ""),
+			Password: getEnv("MAIL_PASSWORD", ""),
 		},
 	}
 

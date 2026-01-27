@@ -3,6 +3,7 @@ package routes
 import (
 	controllers "github.com/cvudumbarainformatika/backend/app/Http/Controllers"
 	middleware "github.com/cvudumbarainformatika/backend/app/Http/Middleware"
+	services "github.com/cvudumbarainformatika/backend/app/Services"
 	"github.com/cvudumbarainformatika/backend/config"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -11,6 +12,10 @@ import (
 
 // SetupRoutes configures all application routes
 func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *config.Config) {
+	// Initialize Services
+	mailService := services.NewMailService(cfg.Mail)
+	// pdpiService := services.NewPDPIService(cfg.PDPI) // Commented out until PDPI Service is implemented
+
 	// Initialize controllers
 	authController := controllers.NewAuthController(db, cfg)
 	avatarController := controllers.NewAvatarController()
@@ -24,6 +29,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	contentController := controllers.NewContentController(db)
 	contentController.InitTable()
 	pdpiController := controllers.NewPDPIController(db, cfg)
+	broadcastController := controllers.NewBroadcastController(mailService, db, cfg.App)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -138,13 +144,11 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				beritaAdmin.DELETE("/:id", beritaController.Delete)
 			}
 
-			// Agenda Management routes (Admin only)
-			agendaAdmin := protected.Group("/agenda")
+			// Broadcast routes (Admin only)
+			broadcastAdmin := protected.Group("/broadcast")
 			{
-				agendaAdmin.POST("", agendaController.Create)
-				agendaAdmin.PUT("/:id", agendaController.Update)
-				agendaAdmin.PATCH("/:id", agendaController.Patch)
-				agendaAdmin.DELETE("/:id", agendaController.Delete)
+				broadcastAdmin.POST("/berita/:id", broadcastController.BroadcastBerita)
+				broadcastAdmin.POST("/agenda/:id", broadcastController.BroadcastAgenda)
 			}
 
 			// Menu Management routes (Admin only)
