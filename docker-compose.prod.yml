@@ -60,8 +60,12 @@ services:
       - ENABLE_POSTGREY=1
       - ONE_DIR=1
       - DMS_DEBUG=0
+      - PERMIT_DOCKER=connected-networks
+      - POSTFIX_INET_PROTOCOLS=ipv4
     cap_add:
       - NET_ADMIN # Required for Fail2Ban
+    networks:
+      - app-network
 
   # Go Application (Production)
   app:

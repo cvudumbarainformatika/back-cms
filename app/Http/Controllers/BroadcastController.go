@@ -36,10 +36,12 @@ var recipients = []string{
 }
 
 // getRecipients determines who to email based on query param
-// ?target=all -> Fetch from DB
-// Default -> Use hardcoded test list
+// ?target=all -> Fetch ALL members from DB (1800+)
+// ?target=warmup -> Fetch 50 members + 7 test emails (IP Warm-up)
+// Default -> Use hardcoded test list (7 emails)
 func (ctrl *BroadcastController) getRecipients(c *gin.Context) ([]string, error) {
 	target := c.Query("target")
+
 	if target == "all" {
 		var emails []string
 		query := "SELECT DISTINCT email FROM pdpi_members WHERE email IS NOT NULL AND email != ''"
@@ -47,8 +49,22 @@ func (ctrl *BroadcastController) getRecipients(c *gin.Context) ([]string, error)
 		if err != nil {
 			return nil, err
 		}
-		return emails, nil
+		// Merge dengan test emails
+		return append(recipients, emails...), nil
 	}
+
+	if target == "warmup" {
+		var emails []string
+		query := "SELECT DISTINCT email FROM pdpi_members WHERE email IS NOT NULL AND email != '' LIMIT 50"
+		err := ctrl.DB.Select(&emails, query)
+		if err != nil {
+			return nil, err
+		}
+		// Merge 50 members + 7 test emails
+		return append(recipients, emails...), nil
+	}
+
+	// Default: Test list only (7 emails)
 	return recipients, nil
 }
 
@@ -230,7 +246,7 @@ func getEmailTemplate(title, imageURL, description, link, buttonText string) str
 			<h2>%s</h2>
 			<div>%s</div>
 			<div class="button-container">
-				<a href="%s" class="button">%s</a>
+				<a href="%s" class="button" style="color: #ffffff !important; text-decoration: none;">%s</a>
 			</div>
 		</div>
 		<div class="footer">
