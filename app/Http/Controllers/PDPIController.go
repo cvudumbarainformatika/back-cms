@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -143,6 +144,148 @@ func (pc *PDPIController) SyncMember(c *gin.Context) {
 	utils.Success(c, http.StatusOK, "Member synced successfully", gin.H{
 		"member": localMember,
 	})
+}
+
+// SyncAllMembers syncs ALL PDPI members from API to local database
+// POST /api/v1/pdpi/sync-all-members
+// This is an admin-only operation with pagination handling
+func (pc *PDPIController) SyncAllMembers(c *gin.Context) {
+	startTime := time.Now()
+
+	// Statistics tracking
+	var (
+		totalFetched  int
+		totalSynced   int
+		totalFailed   int
+		errorMessages []string
+	)
+
+	// Fetch all pages from PDPI API
+	page := 1
+	limit := 100 // Fetch 100 members per page
+	hasMore := true
+
+	for hasMore {
+		// Fetch current page
+		filter := services.MembersFilter{
+			Page:  page,
+			Limit: limit,
+		}
+
+		resp, err := pc.pdpiService.GetMembers(filter)
+		if err != nil {
+			errorMsg := fmt.Sprintf("Failed to fetch page %d: %v", page, err)
+			errorMessages = append(errorMessages, errorMsg)
+			break
+		}
+
+		if !resp.Success {
+			errorMsg := fmt.Sprintf("PDPI API returned unsuccessful response for page %d", page)
+			errorMessages = append(errorMessages, errorMsg)
+			break
+		}
+
+		// Process each member in current page
+		for _, pdpiMember := range resp.Data {
+			totalFetched++
+
+			// Convert to local model
+			localMember := &models.PDPIMember{
+				ID:             pdpiMember.ID,
+				NPA:            pdpiMember.NPA,
+				Nama:           pdpiMember.Nama,
+				Gelar:          sql.NullString{String: pdpiMember.Gelar, Valid: pdpiMember.Gelar != ""},
+				Gelar2:         sql.NullString{String: pdpiMember.Gelar2, Valid: pdpiMember.Gelar2 != ""},
+				Email:          sql.NullString{String: pdpiMember.Email, Valid: pdpiMember.Email != ""},
+				NoHP:           sql.NullString{String: pdpiMember.NoHP, Valid: pdpiMember.NoHP != ""},
+				NIK:            sql.NullString{String: pdpiMember.NIK, Valid: pdpiMember.NIK != ""},
+				JenisKelamin:   sql.NullString{String: pdpiMember.JenisKelamin, Valid: pdpiMember.JenisKelamin != ""},
+				TempatLahir:    sql.NullString{String: pdpiMember.TempatLahir, Valid: pdpiMember.TempatLahir != ""},
+				AlamatRumah:    sql.NullString{String: pdpiMember.AlamatRumah, Valid: pdpiMember.AlamatRumah != ""},
+				Cabang:         sql.NullString{String: pdpiMember.Cabang, Valid: pdpiMember.Cabang != ""},
+				Provinsi:       sql.NullString{String: pdpiMember.Provinsi, Valid: pdpiMember.Provinsi != ""},
+				KotaKabupaten:  sql.NullString{String: pdpiMember.KotaKabupaten, Valid: pdpiMember.KotaKabupaten != ""},
+				Status:         sql.NullString{String: pdpiMember.Status, Valid: pdpiMember.Status != ""},
+				Alumni:         sql.NullString{String: pdpiMember.Alumni, Valid: pdpiMember.Alumni != ""},
+				ThnLulus:       sql.NullInt64{Int64: int64(pdpiMember.ThnLulus), Valid: pdpiMember.ThnLulus > 0},
+				TempatTugas:    sql.NullString{String: pdpiMember.TempatTugas, Valid: pdpiMember.TempatTugas != ""},
+				TempatPraktek1: sql.NullString{String: pdpiMember.TempatPraktek1, Valid: pdpiMember.TempatPraktek1 != ""},
+				TempatPraktek2: sql.NullString{String: pdpiMember.TempatPraktek2, Valid: pdpiMember.TempatPraktek2 != ""},
+				Subspesialis:   sql.NullString{String: pdpiMember.Subspesialis, Valid: pdpiMember.Subspesialis != ""},
+				NoSTR:          sql.NullString{String: pdpiMember.NoSTR, Valid: pdpiMember.NoSTR != ""},
+				NoSIP:          sql.NullString{String: pdpiMember.NoSIP, Valid: pdpiMember.NoSIP != ""},
+				SyncedAt:       sql.NullTime{Time: time.Now(), Valid: true},
+			}
+
+			// Parse dates
+			if pdpiMember.TglLahir != "" {
+				if t, err := time.Parse("2006-01-02", pdpiMember.TglLahir); err == nil {
+					localMember.TglLahir = sql.NullTime{Time: t, Valid: true}
+				}
+			}
+			if pdpiMember.STRBerlakuSampai != "" {
+				if t, err := time.Parse("2006-01-02", pdpiMember.STRBerlakuSampai); err == nil {
+					localMember.STRBerlakuSampai = sql.NullTime{Time: t, Valid: true}
+				}
+			}
+			if pdpiMember.SIPBerlakuSampai != "" {
+				if t, err := time.Parse("2006-01-02", pdpiMember.SIPBerlakuSampai); err == nil {
+					localMember.SIPBerlakuSampai = sql.NullTime{Time: t, Valid: true}
+				}
+			}
+
+			// Try to link to existing user by email
+			if pdpiMember.Email != "" {
+				user, _ := models.FindByEmail(pc.db, pdpiMember.Email)
+				if user != nil {
+					localMember.UserID = sql.NullInt64{Int64: user.ID, Valid: true}
+				}
+			}
+
+			// Upsert to database
+			err = models.UpsertPDPIMember(pc.db, localMember)
+			if err != nil {
+				totalFailed++
+				errorMsg := fmt.Sprintf("Failed to sync member %s (NPA: %s): %v", pdpiMember.Nama, pdpiMember.NPA, err)
+				errorMessages = append(errorMessages, errorMsg)
+				// Continue processing other members
+				continue
+			}
+
+			totalSynced++
+		}
+
+		// Check if there are more pages
+		// Use length of data instead of TotalPages since some APIs don't return reliable TotalPages
+		if len(resp.Data) < limit {
+			// If we got less data than requested, we've reached the end
+			hasMore = false
+		} else {
+			// Continue to next page
+			page++
+		}
+	}
+
+	duration := time.Since(startTime)
+
+	// Prepare response
+	result := gin.H{
+		"total_fetched": totalFetched,
+		"total_synced":  totalSynced,
+		"total_failed":  totalFailed,
+		"duration_ms":   duration.Milliseconds(),
+		"pages_fetched": page,
+	}
+
+	if len(errorMessages) > 0 {
+		result["errors"] = errorMessages
+	}
+
+	if totalFailed > 0 {
+		utils.Success(c, http.StatusOK, fmt.Sprintf("Sync completed with %d failures", totalFailed), result)
+	} else {
+		utils.Success(c, http.StatusOK, "All members synced successfully", result)
+	}
 }
 
 // GetMembers retrieves PDPI members list from local database or API
@@ -346,4 +489,158 @@ func (pc *PDPIController) GetMyMemberData(c *gin.Context) {
 
 	// If not found locally, inform user to sync
 	utils.Error(c, http.StatusNotFound, "member_not_synced", "Member data not synced yet. Please call /api/v1/pdpi/sync-member", nil)
+}
+
+// SearchPublicMembers searches members for public directory
+// GET /api/v1/members/search?nama=&cabang=&provinsi=&status=&page=&limit=
+// This is a public endpoint for member directory feature
+func (pc *PDPIController) SearchPublicMembers(c *gin.Context) {
+	// Build query with filters
+	query := "SELECT id, npa, nama, gelar, gelar2, email, cabang, provinsi, kota_kabupaten, status, tempat_praktek_1, tempat_praktek_2, alumni FROM pdpi_members WHERE 1=1"
+	var args []interface{}
+
+	// Apply filters
+	if nama := c.Query("nama"); nama != "" {
+		query += " AND nama LIKE ?"
+		args = append(args, "%"+nama+"%")
+	}
+	if cabang := c.Query("cabang"); cabang != "" {
+		query += " AND cabang = ?"
+		args = append(args, cabang)
+	}
+	if provinsi := c.Query("provinsi"); provinsi != "" {
+		query += " AND provinsi = ?"
+		args = append(args, provinsi)
+	}
+	if status := c.Query("status"); status != "" {
+		query += " AND status = ?"
+		args = append(args, status)
+	}
+
+	// Order by name
+	query += " ORDER BY nama ASC"
+
+	// Pagination
+	page := utils.QueryInt(c, "page", 1)
+	limit := utils.QueryInt(c, "limit", 12)
+	offset := (page - 1) * limit
+
+	query += " LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+
+	// Execute query
+	type PublicMember struct {
+		ID             string  `db:"id" json:"id"`
+		NPA            string  `db:"npa" json:"npa"`
+		Nama           string  `db:"nama" json:"nama"`
+		Gelar          *string `db:"gelar" json:"gelar"`
+		Gelar2         *string `db:"gelar2" json:"gelar2"`
+		JenisKelamin   *string `db:"jenis_kelamin" json:"jenis_kelamin"`
+		Email          *string `db:"email" json:"email"`
+		Cabang         *string `db:"cabang" json:"cabang"`
+		Provinsi       *string `db:"provinsi" json:"provinsi"`
+		KotaKabupaten  *string `db:"kota_kabupaten" json:"kota_kabupaten"`
+		Status         *string `db:"status" json:"status"`
+		TempatPraktek1 *string `db:"tempat_praktek_1" json:"tempat_praktek_1"`
+		TempatPraktek2 *string `db:"tempat_praktek_2" json:"tempat_praktek_2"`
+		Alumni         *string `db:"alumni" json:"alumni"`
+	}
+
+	// Query with COALESCE to handle NULL values
+	query = "SELECT id, npa, nama, " +
+		"COALESCE(gelar, '') as gelar, " +
+		"COALESCE(gelar2, '') as gelar2, " +
+		"COALESCE(jenis_kelamin, '') as jenis_kelamin, " +
+		"COALESCE(email, '') as email, " +
+		"COALESCE(cabang, '') as cabang, " +
+		"COALESCE(provinsi, '') as provinsi, " +
+		"COALESCE(kota_kabupaten, '') as kota_kabupaten, " +
+		"COALESCE(status, '') as status, " +
+		"COALESCE(tempat_praktek_1, '') as tempat_praktek_1, " +
+		"COALESCE(tempat_praktek_2, '') as tempat_praktek_2, " +
+		"COALESCE(alumni, '') as alumni " +
+		"FROM pdpi_members WHERE nama IS NOT NULL AND nama != ''"
+	args = []interface{}{}
+
+	// Apply filters
+	// Global search: search in nama, cabang, provinsi, tempat_praktek_1, tempat_praktek_2
+	if search := c.Query("nama"); search != "" {
+		query += " AND (nama LIKE ? OR cabang LIKE ? OR provinsi LIKE ? OR tempat_praktek_1 LIKE ? OR tempat_praktek_2 LIKE ?)"
+		searchPattern := "%" + search + "%"
+		args = append(args, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern)
+	}
+	// Specific filters (exact match)
+	if cabang := c.Query("cabang"); cabang != "" {
+		query += " AND cabang = ?"
+		args = append(args, cabang)
+	}
+	if provinsi := c.Query("provinsi"); provinsi != "" {
+		query += " AND provinsi = ?"
+		args = append(args, provinsi)
+	}
+	if status := c.Query("status"); status != "" {
+		query += " AND status = ?"
+		args = append(args, status)
+	}
+
+	// Order by name
+	query += " ORDER BY nama ASC"
+
+	// Pagination
+	page = utils.QueryInt(c, "page", 1)
+	limit = utils.QueryInt(c, "limit", 12)
+	offset = (page - 1) * limit
+
+	query += " LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+
+	members := []PublicMember{} // Initialize as empty slice to return [] instead of null
+	err := pc.db.Select(&members, query, args...)
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to fetch members: "+err.Error(), nil)
+		return
+	}
+
+	// Count total for pagination
+	countQuery := "SELECT COUNT(*) FROM pdpi_members WHERE nama IS NOT NULL AND nama != ''"
+	var countArgs []interface{}
+
+	// Reapply filters for count
+	// Global search: search in nama, cabang, provinsi, tempat_praktek_1, tempat_praktek_2
+	if search := c.Query("nama"); search != "" {
+		countQuery += " AND (nama LIKE ? OR cabang LIKE ? OR provinsi LIKE ? OR tempat_praktek_1 LIKE ? OR tempat_praktek_2 LIKE ?)"
+		searchPattern := "%" + search + "%"
+		countArgs = append(countArgs, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern)
+	}
+	// Specific filters (exact match)
+	if cabang := c.Query("cabang"); cabang != "" {
+		countQuery += " AND cabang = ?"
+		countArgs = append(countArgs, cabang)
+	}
+	if provinsi := c.Query("provinsi"); provinsi != "" {
+		countQuery += " AND provinsi = ?"
+		countArgs = append(countArgs, provinsi)
+	}
+	if status := c.Query("status"); status != "" {
+		countQuery += " AND status = ?"
+		countArgs = append(countArgs, status)
+	}
+
+	var total int
+	err = pc.db.Get(&total, countQuery, countArgs...)
+	if err != nil {
+		total = 0
+	}
+
+	totalPages := (total + limit - 1) / limit
+
+	utils.Success(c, http.StatusOK, "Members retrieved successfully", gin.H{
+		"members": members,
+		"pagination": gin.H{
+			"page":        page,
+			"limit":       limit,
+			"total":       total,
+			"total_pages": totalPages,
+		},
+	})
 }

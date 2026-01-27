@@ -119,12 +119,20 @@ func (ac *AuthController) Register(c *gin.Context) {
 	})
 }
 
-// Login handles user login with SSO support via PDPI API
+// Login handles user login with Hybrid Local-First Authentication Strategy
 // POST /api/v1/auth/login
 // Strategy:
-// 1. Try PDPI authentication first
-// 2. If successful → auto-create/update user + sync member data
-// 3. If failed → fallback to local CMS authentication
+//  1. Check if user exists in Local DB
+//  2. If user exists:
+//     a. Verify password (bcrypt)
+//     b. If valid -> Login Success (Local Auth)
+//     c. If invalid -> Try PDPI Auth (Hybrid Check for Password Change)
+//     i. If PDPI success -> Update local password -> Login Success
+//     ii. If PDPI fail -> Return Invalid Password
+//  3. If user does NOT exist:
+//     a. Try PDPI Auth
+//     b. If PDPI success -> Auto-Create User -> Login Success
+//     c. If PDPI fail -> Return Invalid Credentials
 func (ac *AuthController) Login(c *gin.Context) {
 	var req requests.LoginRequest
 
@@ -133,27 +141,153 @@ func (ac *AuthController) Login(c *gin.Context) {
 		return
 	}
 
-	// Initialize PDPI service
+	// Step 1: Check Local Database
+	user, err := models.FindByEmail(ac.db, req.Email)
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to retrieve user", nil)
+		return
+	}
+
+	var pdpiResp *services.PDPILoginResponse
+	var pdpiErr error
 	pdpiService := services.NewPDPIService(&ac.config.PDPI)
 
-	// Step 1: Try PDPI Authentication
-	pdpiResp, pdpiErr := pdpiService.Login(req.Email, req.Password)
-
-	var user *models.User
-	var err error
-
-	if pdpiErr == nil && pdpiResp != nil && pdpiResp.Success {
-		// PDPI authentication successful!
-		// Auto-create or update user in CMS database
-
-		user, err = models.FindByEmail(ac.db, req.Email)
-		if err != nil {
-			utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to retrieve user", nil)
+	// Helper function for post-login actions (sync & token gen)
+	handleSuccess := func(u *models.User, fromPDPI bool) {
+		// Verify status
+		if u.Status == "pending" {
+			utils.Error(c, http.StatusUnauthorized, "user_pending", "Menunggu verifikasi Admin", nil)
+			return
+		}
+		if u.Status != "active" {
+			utils.Error(c, http.StatusUnauthorized, "user_inactive", "Harap mendaftar terlebih dahulu!", nil)
 			return
 		}
 
-		if user == nil {
-			// User doesn't exist in CMS, create new one
+		// Generate Tokens
+		accessToken, err := utils.GenerateAccessToken(u.ID, u.Email, ac.config.JWT.Secret, ac.config.JWT.AccessTokenExpiration)
+		if err != nil {
+			utils.Error(c, http.StatusInternalServerError, "token_error", "Failed to generate access token", nil)
+			return
+		}
+		refreshToken, err := utils.GenerateRefreshToken(u.ID, u.Email, ac.config.JWT.Secret, ac.config.JWT.RefreshTokenExpiration)
+		if err != nil {
+			utils.Error(c, http.StatusInternalServerError, "token_error", "Failed to generate refresh token", nil)
+			return
+		}
+
+		// Helper string value using local scope since the original closure is gone
+		getStringValue := func(ns sql.NullString) string {
+			if ns.Valid {
+				return ns.String
+			}
+			return ""
+		}
+
+		utils.Success(c, http.StatusOK, "Login successful", gin.H{
+			"user": gin.H{
+				"id":         u.ID,
+				"name":       u.Name,
+				"email":      u.Email,
+				"phone":      getStringValue(u.Phone),
+				"address":    getStringValue(u.Address),
+				"bio":        getStringValue(u.Bio),
+				"avatar":     getStringValue(u.Avatar),
+				"cabang":     getStringValue(u.Cabang),
+				"role":       u.Role,
+				"status":     u.Status,
+				"created_at": u.CreatedAt,
+				"updated_at": u.UpdatedAt,
+			},
+			"access_token":  accessToken,
+			"refresh_token": refreshToken,
+			"expires_in":    ac.config.JWT.AccessTokenExpiration * 60,
+		})
+
+		// Background: Sync PDPI member data if logged in via PDPI or periodically
+		// For now, if we have PDPI response, we sync the member data to local DB
+		if fromPDPI && pdpiResp != nil && pdpiResp.Success && pdpiResp.Member.NPA != "" {
+			// Sync logic (simplified from previous implementation)
+			localMember := &models.PDPIMember{
+				ID:             pdpiResp.Member.ID,
+				NPA:            pdpiResp.Member.NPA,
+				Nama:           pdpiResp.Member.Nama,
+				Gelar:          sql.NullString{String: pdpiResp.Member.Gelar, Valid: pdpiResp.Member.Gelar != ""},
+				Gelar2:         sql.NullString{String: pdpiResp.Member.Gelar2, Valid: pdpiResp.Member.Gelar2 != ""},
+				Email:          sql.NullString{String: pdpiResp.Member.Email, Valid: pdpiResp.Member.Email != ""},
+				NoHP:           sql.NullString{String: pdpiResp.Member.NoHP, Valid: pdpiResp.Member.NoHP != ""},
+				NIK:            sql.NullString{String: pdpiResp.Member.NIK, Valid: pdpiResp.Member.NIK != ""},
+				JenisKelamin:   sql.NullString{String: pdpiResp.Member.JenisKelamin, Valid: pdpiResp.Member.JenisKelamin != ""},
+				TempatLahir:    sql.NullString{String: pdpiResp.Member.TempatLahir, Valid: pdpiResp.Member.TempatLahir != ""},
+				AlamatRumah:    sql.NullString{String: pdpiResp.Member.AlamatRumah, Valid: pdpiResp.Member.AlamatRumah != ""},
+				Cabang:         sql.NullString{String: pdpiResp.Member.Cabang, Valid: pdpiResp.Member.Cabang != ""},
+				Provinsi:       sql.NullString{String: pdpiResp.Member.Provinsi, Valid: pdpiResp.Member.Provinsi != ""},
+				KotaKabupaten:  sql.NullString{String: pdpiResp.Member.KotaKabupaten, Valid: pdpiResp.Member.KotaKabupaten != ""},
+				Status:         sql.NullString{String: pdpiResp.Member.Status, Valid: pdpiResp.Member.Status != ""},
+				Alumni:         sql.NullString{String: pdpiResp.Member.Alumni, Valid: pdpiResp.Member.Alumni != ""},
+				ThnLulus:       sql.NullInt64{Int64: int64(pdpiResp.Member.ThnLulus), Valid: pdpiResp.Member.ThnLulus > 0},
+				TempatTugas:    sql.NullString{String: pdpiResp.Member.TempatTugas, Valid: pdpiResp.Member.TempatTugas != ""},
+				TempatPraktek1: sql.NullString{String: pdpiResp.Member.TempatPraktek1, Valid: pdpiResp.Member.TempatPraktek1 != ""},
+				TempatPraktek2: sql.NullString{String: pdpiResp.Member.TempatPraktek2, Valid: pdpiResp.Member.TempatPraktek2 != ""},
+				Subspesialis:   sql.NullString{String: pdpiResp.Member.Subspesialis, Valid: pdpiResp.Member.Subspesialis != ""},
+				NoSTR:          sql.NullString{String: pdpiResp.Member.NoSTR, Valid: pdpiResp.Member.NoSTR != ""},
+				NoSIP:          sql.NullString{String: pdpiResp.Member.NoSIP, Valid: pdpiResp.Member.NoSIP != ""},
+				UserID:         sql.NullInt64{Int64: u.ID, Valid: true},
+				SyncedAt:       sql.NullTime{Time: time.Now(), Valid: true},
+			}
+
+			// Parse dates
+			if t, err := time.Parse("2006-01-02", pdpiResp.Member.TglLahir); err == nil {
+				localMember.TglLahir = sql.NullTime{Time: t, Valid: true}
+			}
+			if t, err := time.Parse("2006-01-02", pdpiResp.Member.STRBerlakuSampai); err == nil {
+				localMember.STRBerlakuSampai = sql.NullTime{Time: t, Valid: true}
+			}
+			if t, err := time.Parse("2006-01-02", pdpiResp.Member.SIPBerlakuSampai); err == nil {
+				localMember.SIPBerlakuSampai = sql.NullTime{Time: t, Valid: true}
+			}
+
+			// Upsert to DB
+			_ = models.UpsertPDPIMember(ac.db, localMember)
+		}
+	}
+
+	if user != nil {
+		// Condition 1: User Exists in Local DB
+
+		// 1a. Verify Password
+		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+		if err == nil {
+			// Password Match! Login Success (Local Auth)
+			handleSuccess(user, false) // Not explicit from PDPI, using local data
+			return
+		}
+
+		// Password Invalid: Try PDPI Auth (Hybrid Check)
+		// Maybe user changed password in PDPI portal
+		pdpiResp, pdpiErr = pdpiService.Login(req.Email, req.Password)
+		if pdpiErr == nil && pdpiResp != nil && pdpiResp.Success {
+			// PDPI Success! User changed password.
+			// Update local password
+			hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+			user.Password = string(hashedPassword)
+			_ = user.Update(ac.db) // Update password in DB
+
+			handleSuccess(user, true) // From PDPI
+			return
+		}
+
+		// Both Local and PDPI failed
+		utils.Error(c, http.StatusUnauthorized, "invalid_credentials", "Invalid email or password", nil)
+		return
+
+	} else {
+		// Condition 2: User NOT Found in Local DB
+		// Try PDPI Auth
+		pdpiResp, pdpiErr = pdpiService.Login(req.Email, req.Password)
+
+		if pdpiErr == nil && pdpiResp != nil && pdpiResp.Success {
+			// PDPI Success! Auto-Create User
 			hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 			if err != nil {
 				utils.Error(c, http.StatusInternalServerError, "hashing_error", "Failed to hash password", nil)
@@ -164,11 +298,10 @@ func (ac *AuthController) Login(c *gin.Context) {
 				Name:     pdpiResp.Member.Nama,
 				Email:    req.Email,
 				Password: string(hashedPassword),
-				Role:     "member", // Default role for PDPI members
-				Status:   "active", // Auto-activate PDPI members
+				Role:     "member", // Default role
+				Status:   "active", // Auto-active
 			}
 
-			// Set optional fields from PDPI member data
 			if pdpiResp.Member.NoHP != "" {
 				user.Phone = sql.NullString{String: pdpiResp.Member.NoHP, Valid: true}
 			}
@@ -180,150 +313,15 @@ func (ac *AuthController) Login(c *gin.Context) {
 				utils.Error(c, http.StatusInternalServerError, "registration_error", "Failed to create user from PDPI data", nil)
 				return
 			}
-		} else {
-			// User exists, update with fresh PDPI data
-			user.Name = pdpiResp.Member.Nama
-			if pdpiResp.Member.NoHP != "" {
-				user.Phone = sql.NullString{String: pdpiResp.Member.NoHP, Valid: true}
-			}
-			if pdpiResp.Member.Cabang != "" {
-				user.Cabang = sql.NullString{String: pdpiResp.Member.Cabang, Valid: true}
-			}
 
-			// Update password if changed
-			if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-				hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-				if err == nil {
-					user.Password = string(hashedPassword)
-				}
-			}
-
-			if err := user.Update(ac.db); err != nil {
-				// Non-critical, continue
-			}
-		}
-
-		// Sync PDPI member data to local database
-		localMember := &models.PDPIMember{
-			ID:             pdpiResp.Member.ID,
-			NPA:            pdpiResp.Member.NPA,
-			Nama:           pdpiResp.Member.Nama,
-			Gelar:          sql.NullString{String: pdpiResp.Member.Gelar, Valid: pdpiResp.Member.Gelar != ""},
-			Gelar2:         sql.NullString{String: pdpiResp.Member.Gelar2, Valid: pdpiResp.Member.Gelar2 != ""},
-			Email:          sql.NullString{String: pdpiResp.Member.Email, Valid: pdpiResp.Member.Email != ""},
-			NoHP:           sql.NullString{String: pdpiResp.Member.NoHP, Valid: pdpiResp.Member.NoHP != ""},
-			NIK:            sql.NullString{String: pdpiResp.Member.NIK, Valid: pdpiResp.Member.NIK != ""},
-			JenisKelamin:   sql.NullString{String: pdpiResp.Member.JenisKelamin, Valid: pdpiResp.Member.JenisKelamin != ""},
-			TempatLahir:    sql.NullString{String: pdpiResp.Member.TempatLahir, Valid: pdpiResp.Member.TempatLahir != ""},
-			AlamatRumah:    sql.NullString{String: pdpiResp.Member.AlamatRumah, Valid: pdpiResp.Member.AlamatRumah != ""},
-			Cabang:         sql.NullString{String: pdpiResp.Member.Cabang, Valid: pdpiResp.Member.Cabang != ""},
-			Provinsi:       sql.NullString{String: pdpiResp.Member.Provinsi, Valid: pdpiResp.Member.Provinsi != ""},
-			KotaKabupaten:  sql.NullString{String: pdpiResp.Member.KotaKabupaten, Valid: pdpiResp.Member.KotaKabupaten != ""},
-			Status:         sql.NullString{String: pdpiResp.Member.Status, Valid: pdpiResp.Member.Status != ""},
-			Alumni:         sql.NullString{String: pdpiResp.Member.Alumni, Valid: pdpiResp.Member.Alumni != ""},
-			ThnLulus:       sql.NullInt64{Int64: int64(pdpiResp.Member.ThnLulus), Valid: pdpiResp.Member.ThnLulus > 0},
-			TempatTugas:    sql.NullString{String: pdpiResp.Member.TempatTugas, Valid: pdpiResp.Member.TempatTugas != ""},
-			TempatPraktek1: sql.NullString{String: pdpiResp.Member.TempatPraktek1, Valid: pdpiResp.Member.TempatPraktek1 != ""},
-			TempatPraktek2: sql.NullString{String: pdpiResp.Member.TempatPraktek2, Valid: pdpiResp.Member.TempatPraktek2 != ""},
-			Subspesialis:   sql.NullString{String: pdpiResp.Member.Subspesialis, Valid: pdpiResp.Member.Subspesialis != ""},
-			NoSTR:          sql.NullString{String: pdpiResp.Member.NoSTR, Valid: pdpiResp.Member.NoSTR != ""},
-			NoSIP:          sql.NullString{String: pdpiResp.Member.NoSIP, Valid: pdpiResp.Member.NoSIP != ""},
-			UserID:         sql.NullInt64{Int64: user.ID, Valid: true},
-			SyncedAt:       sql.NullTime{Time: time.Now(), Valid: true},
-		}
-
-		// Parse dates
-		if pdpiResp.Member.TglLahir != "" {
-			if t, err := time.Parse("2006-01-02", pdpiResp.Member.TglLahir); err == nil {
-				localMember.TglLahir = sql.NullTime{Time: t, Valid: true}
-			}
-		}
-		if pdpiResp.Member.STRBerlakuSampai != "" {
-			if t, err := time.Parse("2006-01-02", pdpiResp.Member.STRBerlakuSampai); err == nil {
-				localMember.STRBerlakuSampai = sql.NullTime{Time: t, Valid: true}
-			}
-		}
-		if pdpiResp.Member.SIPBerlakuSampai != "" {
-			if t, err := time.Parse("2006-01-02", pdpiResp.Member.SIPBerlakuSampai); err == nil {
-				localMember.SIPBerlakuSampai = sql.NullTime{Time: t, Valid: true}
-			}
-		}
-
-		// Save member data (non-blocking, error is non-critical)
-		_ = models.UpsertPDPIMember(ac.db, localMember)
-
-	} else {
-		// Step 2: PDPI authentication failed, try local CMS authentication
-		user, err = models.FindByEmail(ac.db, req.Email)
-		if err != nil {
-			utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to retrieve user", nil)
+			handleSuccess(user, true) // From PDPI
 			return
 		}
 
-		if user == nil {
-			utils.Error(c, http.StatusUnauthorized, "invalid_credentials", "Invalid email or password", nil)
-			return
-		}
-
-		// Check user status
-		if user.Status == "pending" {
-			utils.Error(c, http.StatusUnauthorized, "user_pending", "Menunggu verifikasi Admin", nil)
-			return
-		}
-
-		if user.Status != "active" {
-			utils.Error(c, http.StatusUnauthorized, "user_inactive", "Harap mendaftar terlebih dahulu!", nil)
-			return
-		}
-
-		// Verify password
-		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
-		if err != nil {
-			utils.Error(c, http.StatusUnauthorized, "invalid_credentials", "Invalid email or password", nil)
-			return
-		}
-	}
-
-	// Step 3: Generate CMS JWT tokens (same for both PDPI and local auth)
-	accessToken, err := utils.GenerateAccessToken(user.ID, user.Email, ac.config.JWT.Secret, ac.config.JWT.AccessTokenExpiration)
-	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, "token_error", "Failed to generate access token", nil)
+		// PDPI also failed
+		utils.Error(c, http.StatusUnauthorized, "invalid_credentials", "Invalid email or password", nil)
 		return
 	}
-
-	refreshToken, err := utils.GenerateRefreshToken(user.ID, user.Email, ac.config.JWT.Secret, ac.config.JWT.RefreshTokenExpiration)
-	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, "token_error", "Failed to generate refresh token", nil)
-		return
-	}
-
-	// Helper function to get string value
-	getStringValue := func(ns sql.NullString) string {
-		if ns.Valid {
-			return ns.String
-		}
-		return ""
-	}
-
-	utils.Success(c, http.StatusOK, "Login successful", gin.H{
-		"user": gin.H{
-			"id":         user.ID,
-			"name":       user.Name,
-			"email":      user.Email,
-			"phone":      getStringValue(user.Phone),
-			"address":    getStringValue(user.Address),
-			"bio":        getStringValue(user.Bio),
-			"avatar":     getStringValue(user.Avatar),
-			"cabang":     getStringValue(user.Cabang),
-			"role":       user.Role,
-			"status":     user.Status,
-			"created_at": user.CreatedAt,
-			"updated_at": user.UpdatedAt,
-		},
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-		"expires_in":    ac.config.JWT.AccessTokenExpiration * 60, // Convert minutes to seconds
-	})
 }
 
 // Me retrieves the current authenticated user's information

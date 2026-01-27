@@ -94,6 +94,11 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 		v1.GET("/dynamic-content/*slug", contentController.GetContentBySlug)
 
 		// ==============================
+		// Members Directory (Public GET)
+		// ==============================
+		v1.GET("/members/search", pdpiController.SearchPublicMembers)
+
+		// ==============================
 		// Protected Routes (JWT Required)
 		// ==============================
 		protected := v1.Group("")
@@ -159,6 +164,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			pdpi := protected.Group("/pdpi")
 			{
 				pdpi.POST("/sync-member", pdpiController.SyncMember)
+				pdpi.POST("/sync-all-members", pdpiController.SyncAllMembers) // New: Sync all PDPI members
 				pdpi.GET("/members", pdpiController.GetMembers)
 				pdpi.GET("/member/:npa", pdpiController.GetMemberByNPA)
 				pdpi.GET("/me", pdpiController.GetMyMemberData)
