@@ -28,6 +28,28 @@ func NewBroadcastController(mailService *services.MailService, db *sqlx.DB, appC
 var recipients = []string{
 	"pharyyady@gmail.com",
 	"cvudumbarainformatika@gmail.com",
+	"vichoirul@gmail.com",
+	"ariezlnd69@gmail.com",
+	"andi.meka.025@gmail.com",
+	"vpluzt@gmail.com",
+	"fafnir573@gmail.com",
+}
+
+// getRecipients determines who to email based on query param
+// ?target=all -> Fetch from DB
+// Default -> Use hardcoded test list
+func (ctrl *BroadcastController) getRecipients(c *gin.Context) ([]string, error) {
+	target := c.Query("target")
+	if target == "all" {
+		var emails []string
+		query := "SELECT DISTINCT email FROM pdpi_members WHERE email IS NOT NULL AND email != ''"
+		err := ctrl.DB.Select(&emails, query)
+		if err != nil {
+			return nil, err
+		}
+		return emails, nil
+	}
+	return recipients, nil
 }
 
 func (ctrl *BroadcastController) BroadcastBerita(c *gin.Context) {
@@ -57,10 +79,20 @@ func (ctrl *BroadcastController) BroadcastBerita(c *gin.Context) {
 		return
 	}
 
-	// 3. Prepare Email
-	// Use dynamic BaseURL from config
+	// 3. Determine Recipients
+	targetRecipients, err := ctrl.getRecipients(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipients: " + err.Error()})
+		return
+	}
+
+	if len(targetRecipients) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No recipients found"})
+		return
+	}
+
+	// 4. Prepare Email Content
 	baseURL := ctrl.Config.BaseURL
-	// Ensure no trailing slash
 	if len(baseURL) > 0 && baseURL[len(baseURL)-1] == '/' {
 		baseURL = baseURL[:len(baseURL)-1]
 	}
@@ -68,24 +100,31 @@ func (ctrl *BroadcastController) BroadcastBerita(c *gin.Context) {
 	subject := fmt.Sprintf("[PDPI News] %s", berita.Title)
 	readMoreLink := fmt.Sprintf("%s/berita/%s", baseURL, berita.Slug)
 
-	// Use placeholder if no image
 	imageURL := berita.ImageURL
 	if imageURL == "" {
 		imageURL = fmt.Sprintf("%s/images/default-news.jpg", baseURL)
 	} else if len(imageURL) > 0 && imageURL[0] == '/' {
-		// If relative path, prepend BaseURL
 		imageURL = fmt.Sprintf("%s%s", baseURL, imageURL)
 	}
 
 	body := getEmailTemplate(berita.Title, imageURL, berita.Excerpt, readMoreLink, "Baca Berita Selengkapnya")
 
-	// 4. Send Email
-	if err := ctrl.MailService.SendEmail(recipients, subject, body); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to send email: %v", err)})
-		return
-	}
+	// 5. Send Email via Background Goroutine (Fire and Forget)
+	// Prevents timeout when sending to many recipients
+	go func(targets []string, subj, content string) {
+		fmt.Printf("Starting broadcast for %d recipients...\n", len(targets))
+		if err := ctrl.MailService.SendEmail(targets, subj, content); err != nil {
+			fmt.Printf("Error sending broadcast: %v\n", err)
+		} else {
+			fmt.Printf("Broadcast completed for %d recipients.\n", len(targets))
+		}
+	}(targetRecipients, subject, body)
 
-	c.JSON(http.StatusOK, gin.H{"message": "Broadcast sent successfully", "recipients": recipients})
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "Broadcast process started in background",
+		"recipient_count": len(targetRecipients),
+		"mode":            c.Query("target"),
+	})
 }
 
 func (ctrl *BroadcastController) BroadcastAgenda(c *gin.Context) {
@@ -115,7 +154,19 @@ func (ctrl *BroadcastController) BroadcastAgenda(c *gin.Context) {
 		return
 	}
 
-	// 3. Prepare Email
+	// 3. Determine Recipients
+	targetRecipients, err := ctrl.getRecipients(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipients: " + err.Error()})
+		return
+	}
+
+	if len(targetRecipients) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No recipients found"})
+		return
+	}
+
+	// 4. Prepare Email Content
 	baseURL := ctrl.Config.BaseURL
 	if len(baseURL) > 0 && baseURL[len(baseURL)-1] == '/' {
 		baseURL = baseURL[:len(baseURL)-1]
@@ -134,13 +185,21 @@ func (ctrl *BroadcastController) BroadcastAgenda(c *gin.Context) {
 	content := fmt.Sprintf("<p><strong>Tanggal:</strong> %s</p><br/>%s", agenda.Date, agenda.Description)
 	body := getEmailTemplate(agenda.Title, imageURL, content, readMoreLink, "Lihat Detail Agenda")
 
-	// 4. Send Email
-	if err := ctrl.MailService.SendEmail(recipients, subject, body); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to send email: %v", err)})
-		return
-	}
+	// 5. Send Email via Background Goroutine
+	go func(targets []string, subj, content string) {
+		fmt.Printf("Starting broadcast for %d recipients...\n", len(targets))
+		if err := ctrl.MailService.SendEmail(targets, subj, content); err != nil {
+			fmt.Printf("Error sending broadcast: %v\n", err)
+		} else {
+			fmt.Printf("Broadcast completed for %d recipients.\n", len(targets))
+		}
+	}(targetRecipients, subject, body)
 
-	c.JSON(http.StatusOK, gin.H{"message": "Broadcast sent successfully", "recipients": recipients})
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "Broadcast process started in background",
+		"recipient_count": len(targetRecipients),
+		"mode":            c.Query("target"),
+	})
 }
 
 func getEmailTemplate(title, imageURL, description, link, buttonText string) string {

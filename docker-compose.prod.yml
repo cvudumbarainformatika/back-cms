@@ -37,6 +37,32 @@ services:
       timeout: 5s
       retries: 5
 
+  # Mail Server (Self-Hosted)
+  mailserver:
+    image: ghcr.io/docker-mailserver/docker-mailserver:latest
+    hostname: mail.klikpdpi.com
+    container_name: mailserver
+    restart: always
+    ports:
+      - "25:25"    # SMTP (Incoming)
+      - "587:587"  # SMTP (Submission/Outgoing)
+      - "993:993"  # IMAP (Optional, for checking mail)
+    volumes:
+      - ./docker-data/dms/mail-data/:/var/mail/
+      - ./docker-data/dms/mail-state/:/var/mail-state/
+      - ./docker-data/dms/mail-logs/:/var/log/mail/
+      - ./docker-data/dms/config/:/tmp/docker-mailserver/
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - ENABLE_SPAMASSASSIN=1
+      - ENABLE_CLAMAV=0 # Saving RAM
+      - ENABLE_FAIL2BAN=1
+      - ENABLE_POSTGREY=1
+      - ONE_DIR=1
+      - DMS_DEBUG=0
+    cap_add:
+      - NET_ADMIN # Required for Fail2Ban
+
   # Go Application (Production)
   app:
     # build:
