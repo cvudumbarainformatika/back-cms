@@ -9,36 +9,36 @@ import (
 
 // PDPIMember represents a member from PDPI system
 type PDPIMember struct {
-	ID               string         `db:"id" json:"id"`
-	NPA              string         `db:"npa" json:"npa"`
-	Nama             string         `db:"nama" json:"nama"`
-	Gelar            sql.NullString `db:"gelar" json:"gelar,omitempty"`
-	Gelar2           sql.NullString `db:"gelar2" json:"gelar2,omitempty"`
-	Email            sql.NullString `db:"email" json:"email,omitempty"`
-	NoHP             sql.NullString `db:"no_hp" json:"no_hp,omitempty"`
-	NIK              sql.NullString `db:"nik" json:"nik,omitempty"`
-	JenisKelamin     sql.NullString `db:"jenis_kelamin" json:"jenis_kelamin,omitempty"`
-	TempatLahir      sql.NullString `db:"tempat_lahir" json:"tempat_lahir,omitempty"`
-	TglLahir         sql.NullTime   `db:"tgl_lahir" json:"tgl_lahir,omitempty"`
-	AlamatRumah      sql.NullString `db:"alamat_rumah" json:"alamat_rumah,omitempty"`
-	Cabang           sql.NullString `db:"cabang" json:"cabang,omitempty"`
-	Provinsi         sql.NullString `db:"provinsi" json:"provinsi,omitempty"`
-	KotaKabupaten    sql.NullString `db:"kota_kabupaten" json:"kota_kabupaten,omitempty"`
-	Status           sql.NullString `db:"status" json:"status,omitempty"`
-	Alumni           sql.NullString `db:"alumni" json:"alumni,omitempty"`
-	ThnLulus         sql.NullInt64  `db:"thn_lulus" json:"thn_lulus,omitempty"`
-	TempatTugas      sql.NullString `db:"tempat_tugas" json:"tempat_tugas,omitempty"`
-	TempatPraktek1   sql.NullString `db:"tempat_praktek_1" json:"tempat_praktek_1,omitempty"`
-	TempatPraktek2   sql.NullString `db:"tempat_praktek_2" json:"tempat_praktek_2,omitempty"`
-	Subspesialis     sql.NullString `db:"subspesialis" json:"subspesialis,omitempty"`
-	NoSTR            sql.NullString `db:"no_str" json:"no_str,omitempty"`
-	STRBerlakuSampai sql.NullTime   `db:"str_berlaku_sampai" json:"str_berlaku_sampai,omitempty"`
-	NoSIP            sql.NullString `db:"no_sip" json:"no_sip,omitempty"`
-	SIPBerlakuSampai sql.NullTime   `db:"sip_berlaku_sampai" json:"sip_berlaku_sampai,omitempty"`
-	UserID           sql.NullInt64  `db:"user_id" json:"user_id,omitempty"`
-	SyncedAt         sql.NullTime   `db:"synced_at" json:"synced_at,omitempty"`
-	CreatedAt        time.Time      `db:"created_at" json:"created_at"`
-	UpdatedAt        time.Time      `db:"updated_at" json:"updated_at"`
+	ID               string     `db:"id" json:"id"`
+	NPA              string     `db:"npa" json:"npa"`
+	Nama             string     `db:"nama" json:"nama"`
+	Gelar            *string    `db:"gelar" json:"gelar"`
+	Gelar2           *string    `db:"gelar2" json:"gelar2"`
+	Email            *string    `db:"email" json:"email"`
+	NoHP             *string    `db:"no_hp" json:"no_hp"`
+	NIK              *string    `db:"nik" json:"nik"`
+	JenisKelamin     *string    `db:"jenis_kelamin" json:"jenis_kelamin"`
+	TempatLahir      *string    `db:"tempat_lahir" json:"tempat_lahir"`
+	TglLahir         *time.Time `db:"tgl_lahir" json:"tgl_lahir"`
+	AlamatRumah      *string    `db:"alamat_rumah" json:"alamat_rumah"`
+	Cabang           *string    `db:"cabang" json:"cabang"`
+	Provinsi         *string    `db:"provinsi" json:"provinsi"`
+	KotaKabupaten    *string    `db:"kota_kabupaten" json:"kota_kabupaten"`
+	Status           *string    `db:"status" json:"status"`
+	Alumni           *string    `db:"alumni" json:"alumni"`
+	ThnLulus         *int64     `db:"thn_lulus" json:"thn_lulus"`
+	TempatTugas      *string    `db:"tempat_tugas" json:"tempat_tugas"`
+	TempatPraktek1   *string    `db:"tempat_praktek_1" json:"tempat_praktek_1"`
+	TempatPraktek2   *string    `db:"tempat_praktek_2" json:"tempat_praktek_2"`
+	Subspesialis     *string    `db:"subspesialis" json:"subspesialis"`
+	NoSTR            *string    `db:"no_str" json:"no_str"`
+	STRBerlakuSampai *time.Time `db:"str_berlaku_sampai" json:"str_berlaku_sampai"`
+	NoSIP            *string    `db:"no_sip" json:"no_sip"`
+	SIPBerlakuSampai *time.Time `db:"sip_berlaku_sampai" json:"sip_berlaku_sampai"`
+	UserID           *int64     `db:"user_id" json:"user_id"`
+	SyncedAt         *time.Time `db:"synced_at" json:"synced_at"`
+	CreatedAt        time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt        time.Time  `db:"updated_at" json:"updated_at"`
 }
 
 // FindPDPIMemberByEmail finds a member by email in local database

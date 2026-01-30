@@ -229,7 +229,14 @@ func (mc *MenuController) saveMenusRecursive(tx *sqlx.Tx, menus []MenuInput, par
 		}
 
 		if isExistingMenu {
-			// This menu already exists in database - SKIP insert, just process children
+			// This menu already exists in database - UPDATE it with new values
+			updateQuery := "UPDATE menus SET label = ?, slug = ?, `to` = ?, icon = ?, `order` = ?, updated_at = NOW() WHERE id = ?"
+			_, err := tx.Exec(updateQuery, menuInput.Label, menuInput.Slug, menuInput.To, menuInput.Icon, menuInput.Order, existingMenuID)
+			if err != nil {
+				return err
+			}
+
+			// Process children
 			if len(menuInput.Children) > 0 {
 				if err := mc.saveMenusRecursive(tx, menuInput.Children, &existingMenuID, position, idMap); err != nil {
 					return err

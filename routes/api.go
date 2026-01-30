@@ -30,6 +30,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	contentController.InitTable()
 	pdpiController := controllers.NewPDPIController(db, cfg)
 	broadcastController := controllers.NewBroadcastController(mailService, db, cfg.App)
+	memberController := controllers.NewMemberController(db)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -162,6 +163,15 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			contentAdmin := protected.Group("/dynamic-content")
 			{
 				contentAdmin.POST("", contentController.SaveContent)
+			}
+
+			// Members Management routes (Admin only)
+			membersAdmin := protected.Group("/members")
+			{
+				membersAdmin.GET("", memberController.GetMembers)
+				membersAdmin.GET("/filter-options", memberController.GetFilterOptions)
+				membersAdmin.GET("/:id", memberController.GetMemberByID)
+				membersAdmin.PUT("/:id", memberController.UpdateMember)
 			}
 
 			// PDPI Integration routes (Protected)

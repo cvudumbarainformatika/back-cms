@@ -212,39 +212,39 @@ func (ac *AuthController) Login(c *gin.Context) {
 				ID:             pdpiResp.Member.ID,
 				NPA:            pdpiResp.Member.NPA,
 				Nama:           pdpiResp.Member.Nama,
-				Gelar:          sql.NullString{String: pdpiResp.Member.Gelar, Valid: pdpiResp.Member.Gelar != ""},
-				Gelar2:         sql.NullString{String: pdpiResp.Member.Gelar2, Valid: pdpiResp.Member.Gelar2 != ""},
-				Email:          sql.NullString{String: pdpiResp.Member.Email, Valid: pdpiResp.Member.Email != ""},
-				NoHP:           sql.NullString{String: pdpiResp.Member.NoHP, Valid: pdpiResp.Member.NoHP != ""},
-				NIK:            sql.NullString{String: pdpiResp.Member.NIK, Valid: pdpiResp.Member.NIK != ""},
-				JenisKelamin:   sql.NullString{String: pdpiResp.Member.JenisKelamin, Valid: pdpiResp.Member.JenisKelamin != ""},
-				TempatLahir:    sql.NullString{String: pdpiResp.Member.TempatLahir, Valid: pdpiResp.Member.TempatLahir != ""},
-				AlamatRumah:    sql.NullString{String: pdpiResp.Member.AlamatRumah, Valid: pdpiResp.Member.AlamatRumah != ""},
-				Cabang:         sql.NullString{String: pdpiResp.Member.Cabang, Valid: pdpiResp.Member.Cabang != ""},
-				Provinsi:       sql.NullString{String: pdpiResp.Member.Provinsi, Valid: pdpiResp.Member.Provinsi != ""},
-				KotaKabupaten:  sql.NullString{String: pdpiResp.Member.KotaKabupaten, Valid: pdpiResp.Member.KotaKabupaten != ""},
-				Status:         sql.NullString{String: pdpiResp.Member.Status, Valid: pdpiResp.Member.Status != ""},
-				Alumni:         sql.NullString{String: pdpiResp.Member.Alumni, Valid: pdpiResp.Member.Alumni != ""},
-				ThnLulus:       sql.NullInt64{Int64: int64(pdpiResp.Member.ThnLulus), Valid: pdpiResp.Member.ThnLulus > 0},
-				TempatTugas:    sql.NullString{String: pdpiResp.Member.TempatTugas, Valid: pdpiResp.Member.TempatTugas != ""},
-				TempatPraktek1: sql.NullString{String: pdpiResp.Member.TempatPraktek1, Valid: pdpiResp.Member.TempatPraktek1 != ""},
-				TempatPraktek2: sql.NullString{String: pdpiResp.Member.TempatPraktek2, Valid: pdpiResp.Member.TempatPraktek2 != ""},
-				Subspesialis:   sql.NullString{String: pdpiResp.Member.Subspesialis, Valid: pdpiResp.Member.Subspesialis != ""},
-				NoSTR:          sql.NullString{String: pdpiResp.Member.NoSTR, Valid: pdpiResp.Member.NoSTR != ""},
-				NoSIP:          sql.NullString{String: pdpiResp.Member.NoSIP, Valid: pdpiResp.Member.NoSIP != ""},
-				UserID:         sql.NullInt64{Int64: u.ID, Valid: true},
-				SyncedAt:       sql.NullTime{Time: time.Now(), Valid: true},
+				Gelar:          utils.StringToPtr(pdpiResp.Member.Gelar),
+				Gelar2:         utils.StringToPtr(pdpiResp.Member.Gelar2),
+				Email:          utils.StringToPtr(pdpiResp.Member.Email),
+				NoHP:           utils.StringToPtr(pdpiResp.Member.NoHP),
+				NIK:            utils.StringToPtr(pdpiResp.Member.NIK),
+				JenisKelamin:   utils.StringToPtr(pdpiResp.Member.JenisKelamin),
+				TempatLahir:    utils.StringToPtr(pdpiResp.Member.TempatLahir),
+				AlamatRumah:    utils.StringToPtr(pdpiResp.Member.AlamatRumah),
+				Cabang:         utils.StringToPtr(pdpiResp.Member.Cabang),
+				Provinsi:       utils.StringToPtr(pdpiResp.Member.Provinsi),
+				KotaKabupaten:  utils.StringToPtr(pdpiResp.Member.KotaKabupaten),
+				Status:         utils.StringToPtr(pdpiResp.Member.Status),
+				Alumni:         utils.StringToPtr(pdpiResp.Member.Alumni),
+				ThnLulus:       utils.Int64ToPtr(int64(pdpiResp.Member.ThnLulus)),
+				TempatTugas:    utils.StringToPtr(pdpiResp.Member.TempatTugas),
+				TempatPraktek1: utils.StringToPtr(pdpiResp.Member.TempatPraktek1),
+				TempatPraktek2: utils.StringToPtr(pdpiResp.Member.TempatPraktek2),
+				Subspesialis:   utils.StringToPtr(pdpiResp.Member.Subspesialis),
+				NoSTR:          utils.StringToPtr(pdpiResp.Member.NoSTR),
+				NoSIP:          utils.StringToPtr(pdpiResp.Member.NoSIP),
+				UserID:         utils.Int64ToPtr(u.ID),
+				SyncedAt:       utils.TimeToPtr(time.Now()),
 			}
 
 			// Parse dates
 			if t, err := time.Parse("2006-01-02", pdpiResp.Member.TglLahir); err == nil {
-				localMember.TglLahir = sql.NullTime{Time: t, Valid: true}
+				localMember.TglLahir = utils.TimeToPtr(t)
 			}
 			if t, err := time.Parse("2006-01-02", pdpiResp.Member.STRBerlakuSampai); err == nil {
-				localMember.STRBerlakuSampai = sql.NullTime{Time: t, Valid: true}
+				localMember.STRBerlakuSampai = utils.TimeToPtr(t)
 			}
 			if t, err := time.Parse("2006-01-02", pdpiResp.Member.SIPBerlakuSampai); err == nil {
-				localMember.SIPBerlakuSampai = sql.NullTime{Time: t, Valid: true}
+				localMember.SIPBerlakuSampai = utils.TimeToPtr(t)
 			}
 
 			// Upsert to DB
