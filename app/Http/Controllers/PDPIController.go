@@ -338,7 +338,7 @@ func (pc *PDPIController) GetMembers(c *gin.Context) {
 			args = append(args, searchPattern, searchPattern, searchPattern)
 		}
 
-		query += " ORDER BY nama ASC"
+		query += " ORDER BY CAST(npa AS UNSIGNED) ASC"
 
 		// Pagination
 		page := utils.QueryInt(c, "page", 1)
@@ -517,7 +517,7 @@ func (pc *PDPIController) SearchPublicMembers(c *gin.Context) {
 	}
 
 	// Order by name
-	query += " ORDER BY nama ASC"
+	query += " ORDER BY CAST(npa AS UNSIGNED) ASC"
 
 	// Pagination
 	page := utils.QueryInt(c, "page", 1)
@@ -583,7 +583,7 @@ func (pc *PDPIController) SearchPublicMembers(c *gin.Context) {
 	}
 
 	// Order by name
-	query += " ORDER BY nama ASC"
+	query += " ORDER BY CAST(npa AS UNSIGNED) ASC"
 
 	// Pagination
 	page = utils.QueryInt(c, "page", 1)
