@@ -9,21 +9,25 @@ import (
 
 // Berita represents a news article
 type Berita struct {
-	ID          int64      `db:"id" json:"id"`
-	Slug        string     `db:"slug" json:"slug"`
-	Title       string     `db:"title" json:"title"`
-	Excerpt     string     `db:"excerpt" json:"excerpt"`
-	Content     string     `db:"content" json:"content"`
-	ImageURL    string     `db:"image_url" json:"image_url"`
-	Category    string     `db:"category" json:"category"`
-	Author      string     `db:"author" json:"author"`
-	Status      string     `db:"status" json:"status"`
-	Views       int64      `db:"views" json:"views"`
-	PublishedAt *time.Time `db:"published_at" json:"published_at"`
-	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt   time.Time  `db:"updated_at" json:"updated_at"`
-	DeletedAt   *time.Time `db:"deleted_at" json:"deleted_at,omitempty"`
-	Tags        []string   `db:"-" json:"tags,omitempty"`
+	ID              int64      `db:"id" json:"id"`
+	Slug            string     `db:"slug" json:"slug"`
+	Title           string     `db:"title" json:"title"`
+	Excerpt         string     `db:"excerpt" json:"excerpt"`
+	Content         string     `db:"content" json:"content"`
+	ImageURL        string     `db:"image_url" json:"image_url"`
+	Category        string     `db:"category" json:"category"`
+	Author          string     `db:"author" json:"author"`
+	AuthorID        *string    `db:"author_id" json:"author_id,omitempty"`
+	Status          string     `db:"status" json:"status"`
+	RejectionReason *string    `db:"rejection_reason" json:"rejection_reason,omitempty"`
+	RejectedAt      *time.Time `db:"rejected_at" json:"rejected_at,omitempty"`
+	RejectedBy      *string    `db:"rejected_by" json:"rejected_by,omitempty"`
+	Views           int64      `db:"views" json:"views"`
+	PublishedAt     *time.Time `db:"published_at" json:"published_at"`
+	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time  `db:"updated_at" json:"updated_at"`
+	DeletedAt       *time.Time `db:"deleted_at" json:"deleted_at,omitempty"`
+	Tags            []string   `db:"-" json:"tags,omitempty"`
 }
 
 // Create creates a new berita record
@@ -36,10 +40,10 @@ func (b *Berita) Create(db *sqlx.DB) error {
 	}
 
 	query := `
-		INSERT INTO berita (slug, title, excerpt, content, image_url, category, author, status, views, published_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO berita (slug, title, excerpt, content, image_url, category, author, author_id, status, rejection_reason, rejected_at, rejected_by, views, published_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	result, err := db.Exec(query, b.Slug, b.Title, b.Excerpt, b.Content, b.ImageURL, b.Category, b.Author, b.Status, b.Views, b.PublishedAt, b.CreatedAt, b.UpdatedAt)
+	result, err := db.Exec(query, b.Slug, b.Title, b.Excerpt, b.Content, b.ImageURL, b.Category, b.Author, b.AuthorID, b.Status, b.RejectionReason, b.RejectedAt, b.RejectedBy, b.Views, b.PublishedAt, b.CreatedAt, b.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -52,11 +56,11 @@ func (b *Berita) Create(db *sqlx.DB) error {
 	return nil
 }
 
-// FindBySlug finds a berita by slug (excluding deleted)
+// FindBySlug finds a berita by slug (forced recompile) (excluding deleted)
 func FindBeritaBySlug(db *sqlx.DB, slug string) (*Berita, error) {
 	berita := &Berita{}
 	query := `
-		SELECT id, slug, title, excerpt, content, image_url, category, author, status, views, published_at, created_at, updated_at, deleted_at 
+		SELECT id, slug, title, excerpt, content, image_url, category, author, author_id, status, rejection_reason, rejected_at, rejected_by, views, published_at, created_at, updated_at, deleted_at 
 		FROM berita 
 		WHERE slug = ? AND deleted_at IS NULL
 	`
@@ -74,7 +78,7 @@ func FindBeritaBySlug(db *sqlx.DB, slug string) (*Berita, error) {
 func FindBeritaByID(db *sqlx.DB, id int64) (*Berita, error) {
 	berita := &Berita{}
 	query := `
-		SELECT id, slug, title, excerpt, content, image_url, category, author, status, views, published_at, created_at, updated_at, deleted_at 
+		SELECT id, slug, title, excerpt, content, image_url, category, author, author_id, status, rejection_reason, rejected_at, rejected_by, views, published_at, created_at, updated_at, deleted_at 
 		FROM berita 
 		WHERE id = ? AND deleted_at IS NULL
 	`
@@ -137,10 +141,10 @@ func (b *Berita) Update(db *sqlx.DB) error {
 	b.UpdatedAt = time.Now()
 	query := `
 		UPDATE berita 
-		SET slug = ?, title = ?, excerpt = ?, content = ?, image_url = ?, category = ?, author = ?, status = ?, published_at = ?, updated_at = ?
+		SET slug = ?, title = ?, excerpt = ?, content = ?, image_url = ?, category = ?, author = ?, author_id = ?, status = ?, rejection_reason = ?, rejected_at = ?, rejected_by = ?, published_at = ?, updated_at = ?
 		WHERE id = ? AND deleted_at IS NULL
 	`
-	_, err := db.Exec(query, b.Slug, b.Title, b.Excerpt, b.Content, b.ImageURL, b.Category, b.Author, b.Status, b.PublishedAt, b.UpdatedAt, b.ID)
+	_, err := db.Exec(query, b.Slug, b.Title, b.Excerpt, b.Content, b.ImageURL, b.Category, b.Author, b.AuthorID, b.Status, b.RejectionReason, b.RejectedAt, b.RejectedBy, b.PublishedAt, b.UpdatedAt, b.ID)
 	return err
 }
 

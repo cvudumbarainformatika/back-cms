@@ -13,6 +13,7 @@ type CreateBeritaRequest struct {
 	ImageURL    string   `json:"image_url" binding:"omitempty,max=255"`
 	Category    string   `json:"category" binding:"required,oneof=umum ilmiah kegiatan pengumuman prestasi"`
 	Author      string   `json:"author" binding:"required,min=1,max=255"`
+	AuthorID    string   `json:"author_id" binding:"omitempty,max=50"`
 	Status      string   `json:"status" binding:"omitempty,oneof=draft published"`
 	Tags        []string `json:"tags" binding:"omitempty"`
 	PublishedAt *string  `json:"published_at" binding:"omitempty"`
@@ -35,15 +36,17 @@ func (r *CreateBeritaRequest) Validate(c *gin.Context) error {
 
 // UpdateBeritaRequest represents the request payload for updating a berita
 type UpdateBeritaRequest struct {
-	Title       string   `json:"title" binding:"required,min=1,max=255"`
-	Excerpt     string   `json:"excerpt" binding:"required,min=1"`
-	Content     string   `json:"content" binding:"required,min=1"`
-	ImageURL    string   `json:"image_url" binding:"omitempty,max=255"`
-	Category    string   `json:"category" binding:"required,oneof=umum ilmiah kegiatan pengumuman prestasi"`
-	Author      string   `json:"author" binding:"required,min=1,max=255"`
-	Status      string   `json:"status" binding:"required,oneof=draft published"`
-	Tags        []string `json:"tags" binding:"omitempty"`
-	PublishedAt *string  `json:"published_at" binding:"omitempty"`
+	Title           string   `json:"title" binding:"required,min=1,max=255"`
+	Excerpt         string   `json:"excerpt" binding:"required,min=1"`
+	Content         string   `json:"content" binding:"required,min=1"`
+	ImageURL        string   `json:"image_url" binding:"omitempty,max=255"`
+	Category        string   `json:"category" binding:"required,oneof=umum ilmiah kegiatan pengumuman prestasi"`
+	Author          string   `json:"author" binding:"required,min=1,max=255"`
+	AuthorID        string   `json:"author_id" binding:"omitempty,max=50"`
+	Status          string   `json:"status" binding:"required,oneof=draft published rejected"`
+	RejectionReason string   `json:"rejection_reason" binding:"omitempty"`
+	Tags            []string `json:"tags" binding:"omitempty"`
+	PublishedAt     *string  `json:"published_at" binding:"omitempty"`
 }
 
 // Validate validates the UpdateBeritaRequest

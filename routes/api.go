@@ -21,7 +21,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	avatarController := controllers.NewAvatarController()
 	fileController := controllers.NewFileController()
 	userController := controllers.NewUserController(db)
-	beritaController := controllers.NewBeritaController(db)
+	beritaController := controllers.NewBeritaController(db, mailService)
 	agendaController := controllers.NewAgendaController(db)
 	uploadController := controllers.NewUploadController()
 	homepageController := controllers.NewHomepageController(db)

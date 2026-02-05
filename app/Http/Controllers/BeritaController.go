@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -8,6 +10,7 @@ import (
 
 	requests "github.com/cvudumbarainformatika/backend/app/Http/Requests"
 	models "github.com/cvudumbarainformatika/backend/app/Models"
+	services "github.com/cvudumbarainformatika/backend/app/Services"
 	"github.com/cvudumbarainformatika/backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -15,18 +18,20 @@ import (
 
 // BeritaController handles berita (news) operations
 type BeritaController struct {
-	db *sqlx.DB
+	db   *sqlx.DB
+	mail *services.MailService
 }
 
 // NewBeritaController creates a new BeritaController instance
-func NewBeritaController(db *sqlx.DB) *BeritaController {
+func NewBeritaController(db *sqlx.DB, mail *services.MailService) *BeritaController {
 	return &BeritaController{
-		db: db,
+		db:   db,
+		mail: mail,
 	}
 }
 
 // GetList returns paginated list of berita with optional filters
-// GET /api/v1/berita?page=&limit=&category=&author=&status=&search=&sort=&order=
+// GET /api/v1/berita?page=&limit=&category=&author=&author_id=&status=&search=&sort=&order=
 func (bc *BeritaController) GetList(c *gin.Context) {
 	// Get pagination parameters
 	page, limit := utils.GetPaginationParams(c)
@@ -34,6 +39,7 @@ func (bc *BeritaController) GetList(c *gin.Context) {
 	// Get filter parameters
 	category := c.Query("category")
 	author := c.Query("author")
+	authorID := c.Query("author_id")
 	status := c.Query("status")
 	search := c.Query("search")
 
@@ -64,7 +70,7 @@ func (bc *BeritaController) GetList(c *gin.Context) {
 	}
 
 	// Build query
-	query := `SELECT id, slug, title, excerpt, content, image_url, category, author, status, views, published_at, created_at, updated_at, deleted_at 
+	query := `SELECT id, slug, title, excerpt, content, image_url, category, author, author_id, status, rejection_reason, rejected_at, rejected_by, views, published_at, created_at, updated_at, deleted_at 
 	          FROM berita WHERE deleted_at IS NULL`
 	args := []interface{}{}
 
@@ -77,6 +83,11 @@ func (bc *BeritaController) GetList(c *gin.Context) {
 	if author != "" {
 		query += ` AND author = ?`
 		args = append(args, author)
+	}
+
+	if authorID != "" {
+		query += ` AND author_id = ?`
+		args = append(args, authorID)
 	}
 
 	if status != "" {
@@ -101,6 +112,10 @@ func (bc *BeritaController) GetList(c *gin.Context) {
 	if author != "" {
 		countQuery += ` AND author = ?`
 		countArgs = append(countArgs, author)
+	}
+	if authorID != "" {
+		countQuery += ` AND author_id = ?`
+		countArgs = append(countArgs, authorID)
 	}
 	if status != "" {
 		countQuery += ` AND status = ?`
@@ -202,6 +217,11 @@ func (bc *BeritaController) Create(c *gin.Context) {
 		Tags:     req.Tags,
 	}
 
+	// Set author_id if provided
+	if req.AuthorID != "" {
+		berita.AuthorID = &req.AuthorID
+	}
+
 	// Set published_at if status is published
 	if req.Status == "published" {
 		if req.PublishedAt != nil && *req.PublishedAt != "" {
@@ -242,6 +262,12 @@ func (bc *BeritaController) Update(c *gin.Context) {
 		return
 	}
 
+	// Additional validation: rejection_reason required if status is rejected
+	if req.Status == "rejected" && req.RejectionReason == "" {
+		utils.Error(c, http.StatusBadRequest, "validation_failed", "Rejection reason is required when status is rejected", nil)
+		return
+	}
+
 	// Get existing berita
 	berita, err := models.FindBeritaByID(bc.db, beritaID)
 	if err != nil || berita == nil {
@@ -259,6 +285,71 @@ func (bc *BeritaController) Update(c *gin.Context) {
 	berita.Status = req.Status
 	berita.Tags = req.Tags
 
+	// Set author_id if provided
+	if req.AuthorID != "" {
+		berita.AuthorID = &req.AuthorID
+	}
+
+	// Handle rejection logic
+	if req.Status == "rejected" {
+		berita.RejectionReason = &req.RejectionReason
+		now := time.Now()
+		berita.RejectedAt = &now
+
+		// Get admin user ID from context (authenticated user)
+		// Safe type conversion to handle different types (string, int, float64, etc.)
+		if userID, exists := c.Get("user_id"); exists {
+			var userIDStr string
+			switch v := userID.(type) {
+			case string:
+				userIDStr = v
+			case int:
+				userIDStr = strconv.Itoa(v)
+			case int64:
+				userIDStr = strconv.FormatInt(v, 10)
+			case float64:
+				userIDStr = strconv.FormatFloat(v, 'f', 0, 64)
+			default:
+				userIDStr = fmt.Sprintf("%v", v)
+			}
+			berita.RejectedBy = &userIDStr
+		}
+
+		// Clear published_at if rejecting published article
+		berita.PublishedAt = nil
+
+		// Send email notification to author
+		if berita.AuthorID != nil {
+			var authorEmail string
+			var authorName string
+			// Query email and name from users table
+			err := bc.db.QueryRow("SELECT email, name FROM users WHERE id = ?", *berita.AuthorID).Scan(&authorEmail, &authorName)
+			if err == nil && authorEmail != "" {
+				subject := fmt.Sprintf("Status Artikel: Ditolak - %s", berita.Title)
+				body := fmt.Sprintf(`
+					<h3>Halo %s,</h3>
+					<p>Artikel Anda dengan judul <strong>"%s"</strong> telah ditolak oleh admin.</p>
+					<p><strong>Alasan Penolakan:</strong><br/>%s</p>
+					<p>Silakan login ke dashboard untuk memperbaiki artikel Anda.</p>
+					<br/>
+					<p>Salam,<br/>Admin PDPI</p>
+				`, authorName, berita.Title, *berita.RejectionReason)
+
+				// Send email asynchronously
+				go func() {
+					if err := bc.mail.SendEmail([]string{authorEmail}, subject, body); err != nil {
+						log.Printf("Failed to send rejection email to %s: %v", authorEmail, err)
+					}
+				}()
+			}
+		}
+	} else {
+		// Clear rejection fields if status changed from rejected
+		berita.RejectionReason = nil
+		berita.RejectedAt = nil
+		berita.RejectedBy = nil
+	}
+
 	// Update published_at if status changed to published
 	if req.Status == "published" {
 		if req.PublishedAt != nil && *req.PublishedAt != "" {
@@ -275,6 +366,8 @@ func (bc *BeritaController) Update(c *gin.Context) {
 	// Save to database
 	err = berita.Update(bc.db)
 	if err != nil {
+		// Better error logging
+		log.Printf("Failed to update berita ID %d: %v", beritaID, err)
 		utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to update berita: "+err.Error(), nil)
 		return
 	}
@@ -425,6 +518,24 @@ func formatBeritaResponse(berita models.Berita, includeContent bool) gin.H {
 	// Add deleted_at if not nil (for admin view)
 	if berita.DeletedAt != nil {
 		response["deleted_at"] = berita.DeletedAt
+	}
+
+	// Add author_id if not nil
+	if berita.AuthorID != nil {
+		response["author_id"] = berita.AuthorID
+	}
+
+	// Add rejection fields if status is rejected
+	if berita.Status == "rejected" {
+		if berita.RejectionReason != nil {
+			response["rejection_reason"] = berita.RejectionReason
+		}
+		if berita.RejectedAt != nil {
+			response["rejected_at"] = berita.RejectedAt
+		}
+		if berita.RejectedBy != nil {
+			response["rejected_by"] = berita.RejectedBy
+		}
 	}
 
 	return response
