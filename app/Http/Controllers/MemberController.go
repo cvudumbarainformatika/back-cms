@@ -86,7 +86,7 @@ func (c *MemberController) GetMembers(ctx *gin.Context) {
 	}
 
 	// Add ordering and pagination
-	query += " ORDER BY nama ASC LIMIT ? OFFSET ?"
+	query += " ORDER BY npa ASC LIMIT ? OFFSET ?"
 	args = append(args, limit, offset)
 
 	// Get members

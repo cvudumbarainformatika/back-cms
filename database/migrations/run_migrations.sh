@@ -49,26 +49,14 @@ echo ""
 
 # Run migrations
 MIGRATION_DIR="database/migrations"
-MIGRATIONS=(
-    "001_create_users_table.sql"
-    "002_create_berita_table.sql"
-    "003_create_berita_tags_table.sql"
-    "004_create_agenda_table.sql"
-    "005_create_direktori_table.sql"
-    "006_create_pengurus_table.sql"
-    "007_create_documents_table.sql"
-    "008_create_menus_table.sql"
-    "009_create_dynamic_contents_table.sql"
-    "010_create_homepage_table.sql"
-    "011_create_user_sessions_table.sql"
-)
 
 echo -e "${YELLOW}Running migrations...${NC}"
 echo ""
 
 FAILED=0
-for migration in "${MIGRATIONS[@]}"; do
-    MIGRATION_FILE="$MIGRATION_DIR/$migration"
+# Find all .sql files, sort them, and loop
+for MIGRATION_FILE in $(ls $MIGRATION_DIR/*.sql | sort); do
+    migration=$(basename "$MIGRATION_FILE")
     
     if [ ! -f "$MIGRATION_FILE" ]; then
         echo -e "${RED}❌ Migration file not found: $MIGRATION_FILE${NC}"
