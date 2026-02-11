@@ -31,6 +31,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	pdpiController := controllers.NewPDPIController(db, cfg)
 	broadcastController := controllers.NewBroadcastController(mailService, db, cfg.App)
 	memberController := controllers.NewMemberController(db)
+	dashboardController := controllers.NewDashboardController(db)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -118,6 +119,9 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				auth.PUT("/profile", authController.UpdateProfile)
 				auth.POST("/profile/change-password", authController.ChangePassword)
 			}
+
+			// Dashboard Stats
+			protected.GET("/dashboard/stats", dashboardController.GetStats)
 
 			// Homepage Management (Admin only)
 			protected.POST("/homepage", homepageController.Update)
