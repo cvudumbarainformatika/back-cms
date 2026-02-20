@@ -1,17 +1,17 @@
 package services
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/cvudumbarainformatika/backend/config"
 )
 
-// PDPIService handles communication with PDPI API
+// PDPIService handles communication with PDPI API (now Supabase)
 type PDPIService struct {
 	config *config.PDPIConfig
 	client *http.Client
@@ -27,80 +27,58 @@ func NewPDPIService(cfg *config.PDPIConfig) *PDPIService {
 	}
 }
 
-// PDPIMember represents a member from PDPI API
-type PDPIMember struct {
-	ID               string `json:"id"`
-	NPA              string `json:"npa"`
-	Nama             string `json:"nama"`
-	Gelar            string `json:"gelar"`
-	Gelar2           string `json:"gelar2"`
-	Email            string `json:"email"`
-	NoHP             string `json:"no_hp"`
-	NIK              string `json:"nik"`
-	JenisKelamin     string `json:"jenis_kelamin"`
-	TempatLahir      string `json:"tempat_lahir"`
-	TglLahir         string `json:"tgl_lahir"`
-	AlamatRumah      string `json:"alamat_rumah"`
-	Cabang           string `json:"cabang"`
-	Provinsi         string `json:"provinsi"`
-	KotaKabupaten    string `json:"kota_kabupaten"`
-	Status           string `json:"status"`
-	Alumni           string `json:"alumni"`
-	ThnLulus         int    `json:"thn_lulus"`
-	TempatTugas      string `json:"tempat_tugas"`
-	TempatPraktek1   string `json:"tempat_praktek_1"`
-	TempatPraktek2   string `json:"tempat_praktek_2"`
-	Subspesialis     string `json:"subspesialis"`
-	NoSTR            string `json:"no_str"`
-	STRBerlakuSampai string `json:"str_berlaku_sampai"`
-	NoSIP            string `json:"no_sip"`
-	SIPBerlakuSampai string `json:"sip_berlaku_sampai"`
-	CreatedAt        string `json:"created_at"`
-	UpdatedAt        string `json:"updated_at"`
-}
-
-// PDPILoginRequest represents login request to PDPI API
-type PDPILoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-// PDPILoginResponse represents login response from PDPI API
-type PDPILoginResponse struct {
-	Success bool `json:"success"`
-	User    struct {
-		ID       string `json:"id"`
-		Email    string `json:"email"`
-		NIK      string `json:"nik"`
-		Role     string `json:"role"`
-		BranchID string `json:"branch_id"`
-	} `json:"user"`
-	Member  PDPIMember `json:"member"`
-	Session struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		ExpiresIn    int    `json:"expires_in"`
-		ExpiresAt    int64  `json:"expires_at"`
-		TokenType    string `json:"token_type"`
-	} `json:"session"`
-}
-
-// PDPIMembersResponse represents response from /api-members endpoint
-type PDPIMembersResponse struct {
-	Success    bool         `json:"success"`
-	Data       []PDPIMember `json:"data"`
-	Pagination struct {
-		Page       int `json:"page"`
-		Limit      int `json:"limit"`
-		Total      int `json:"total"`
-		TotalPages int `json:"total_pages"`
-	} `json:"pagination"`
-}
-
-// PDPIErrorResponse represents error response from PDPI API
-type PDPIErrorResponse struct {
-	Error   string `json:"error"`
-	Message string `json:"message,omitempty"`
+// SupabaseMember represents a member from Supabase public_member_directory view
+type SupabaseMember struct {
+	ID                    string  `json:"id"`
+	NPA                   *string `json:"npa"`
+	NPANumeric            *int64  `json:"npa_numeric"`
+	Nama                  string  `json:"nama"`
+	Foto                  *string `json:"foto"`
+	Gelar                 *string `json:"gelar"`
+	Gelar2                *string `json:"gelar2"`
+	Email                 *string `json:"email"`
+	NoHP                  *string `json:"no_hp"`
+	NIK                   *string `json:"nik"`
+	JenisKelamin          *string `json:"jenis_kelamin"`
+	TempatLahir           *string `json:"tempat_lahir"`
+	TglLahir              *string `json:"tgl_lahir"` // Date string YYYY-MM-DD
+	AlamatRumah           *string `json:"alamat_rumah"`
+	Cabang                *string `json:"cabang"`
+	Provinsi              *string `json:"provinsi"`
+	KotaKabupaten         *string `json:"kota_kabupaten"`
+	KotaKabupatenKantor   *string `json:"kota_kabupaten_kantor"`
+	ProvinsiKantor        *string `json:"provinsi_kantor"`
+	Status                *string `json:"status"`
+	Alumni                *string `json:"alumni"`
+	ThnLulus              *int64  `json:"thn_lulus"`
+	TempatTugas           *string `json:"tempat_tugas"`
+	TempatPraktek1        *string `json:"tempat_praktek_1"`
+	TempatPraktek1Tipe    *string `json:"tempat_praktek_1_tipe"`
+	TempatPraktek1Tipe2   *string `json:"tempat_praktek_1_tipe_2"`
+	TempatPraktek1Alkes   *string `json:"tempat_praktek_1_alkes"`
+	TempatPraktek1Alkes2  *string `json:"tempat_praktek_1_alkes_2"`
+	TempatPraktek2        *string `json:"tempat_praktek_2"`
+	TempatPraktek2Tipe    *string `json:"tempat_praktek_2_tipe"`
+	TempatPraktek2Tipe2   *string `json:"tempat_praktek_2_tipe_2"`
+	TempatPraktek2Alkes   *string `json:"tempat_praktek_2_alkes"`
+	TempatPraktek2Alkes2  *string `json:"tempat_praktek_2_alkes_2"`
+	KotaKabupatenPraktek2 *string `json:"kota_kabupaten_praktek_2"`
+	ProvinsiPraktek2      *string `json:"provinsi_praktek_2"`
+	TempatPraktek3        *string `json:"tempat_praktek_3"`
+	TempatPraktek3Tipe    *string `json:"tempat_praktek_3_tipe"`
+	TempatPraktek3Tipe2   *string `json:"tempat_praktek_3_tipe_2"`
+	TempatPraktek3Alkes   *string `json:"tempat_praktek_3_alkes"`
+	TempatPraktek3Alkes2  *string `json:"tempat_praktek_3_alkes_2"`
+	KotaKabupatenPraktek3 *string `json:"kota_kabupaten_praktek_3"`
+	ProvinsiPraktek3      *string `json:"provinsi_praktek_3"`
+	Subspesialis          *string `json:"subspesialis"`
+	GelarFISR             *string `json:"gelar_fisr"`
+	NoSTR                 *string `json:"no_str"`
+	STRBerlakuSampai      *string `json:"str_berlaku_sampai"` // Date string YYYY-MM-DD
+	NoSIP                 *string `json:"no_sip"`
+	SIPBerlakuSampai      *string `json:"sip_berlaku_sampai"` // Date string YYYY-MM-DD
+	CreatedAt             *string `json:"created_at"`         // Timestamp string
+	UpdatedAt             *string `json:"updated_at"`         // Timestamp string
 }
 
 // MembersFilter represents filters for GetMembers
@@ -113,184 +91,168 @@ type MembersFilter struct {
 	Search   string
 }
 
-// doRequest performs HTTP request to PDPI API
-func (s *PDPIService) doRequest(method, endpoint string, body interface{}) (*http.Response, error) {
-	url := s.config.BaseURL + endpoint
+// FetchMembersFromSupabase retrieves all members from Supabase REST API
+func (s *PDPIService) FetchMembersFromSupabase() ([]SupabaseMember, error) {
+	// Endpoint: /public_member_directory?select=*&order=npa_numeric.asc.nullslast
+	var allMembers []SupabaseMember
+	limit := 1000
+	offset := 0
 
-	var reqBody io.Reader
-	if body != nil {
-		jsonData, err := json.Marshal(body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	for {
+		endpoint := fmt.Sprintf("/public_member_directory?select=*&order=npa_numeric.asc.nullslast&limit=%d&offset=%d", limit, offset)
+		url := s.getBaseURL() + endpoint
+
+		fmt.Printf("[PDPI Sync] Fetching page %d (offset %d): %s\n", (offset/limit)+1, offset, url)
+
+		// Debug API Key (Safely)
+		maskedKey := "N/A"
+		if len(s.config.APIKey) > 8 {
+			maskedKey = s.config.APIKey[:4] + "..." + s.config.APIKey[len(s.config.APIKey)-4:]
 		}
-		reqBody = bytes.NewBuffer(jsonData)
+		fmt.Printf("[PDPI Debug] API Key: %s (Length: %d)\n", maskedKey, len(s.config.APIKey))
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+
+		// Set Authentication Header
+		req.Header.Set("apikey", s.config.APIKey)
+		// req.Header.Set("Authorization", "Bearer "+s.config.APIKey) // Removed based on user feedback
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := s.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		// Read response body
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+
+		// Check for error response
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("Supabase API error (status %d) at URL %s: %s", resp.StatusCode, url, string(bodyBytes))
+		}
+
+		// Parse success response array
+		var members []SupabaseMember
+		if err := json.Unmarshal(bodyBytes, &members); err != nil {
+			return nil, fmt.Errorf("failed to parse response: %w", err)
+		}
+
+		if len(members) == 0 {
+			break
+		}
+
+		allMembers = append(allMembers, members...)
+
+		if len(members) < limit {
+			break
+		}
+
+		offset += limit
 	}
 
-	req, err := http.NewRequest(method, url, reqBody)
+	return allMembers, nil
+}
+
+// FetchMemberByNPA retrieves a specific member by NPA from Supabase
+func (s *PDPIService) FetchMemberByNPA(npa string) (*SupabaseMember, error) {
+	// Filter: npa=eq.VALUE
+	endpoint := fmt.Sprintf("/public_member_directory?npa=eq.%s&limit=1", npa)
+	url := s.getBaseURL() + endpoint
+
+	fmt.Printf("[PDPI Sync] Fetching member by NPA: %s\n", url)
+
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set headers
-	req.Header.Set("x-api-key", s.config.APIKey)
+	req.Header.Set("apikey", s.config.APIKey)
+	// req.Header.Set("Authorization", "Bearer "+s.config.APIKey) // Removed
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-
-	return resp, nil
-}
-
-// Login authenticates a member via PDPI API
-func (s *PDPIService) Login(email, password string) (*PDPILoginResponse, error) {
-	reqBody := PDPILoginRequest{
-		Email:    email,
-		Password: password,
-	}
-
-	resp, err := s.doRequest("POST", "/api-login", reqBody)
-	if err != nil {
-		return nil, err
-	}
 	defer resp.Body.Close()
 
-	// Read response body
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	// Check for error response
 	if resp.StatusCode != http.StatusOK {
-		var errResp PDPIErrorResponse
-		if err := json.Unmarshal(bodyBytes, &errResp); err != nil {
-			return nil, fmt.Errorf("PDPI API error (status %d): %s", resp.StatusCode, string(bodyBytes))
-		}
-		return nil, fmt.Errorf("PDPI API error: %s - %s", errResp.Error, errResp.Message)
+		return nil, fmt.Errorf("Supabase API error (status %d) at URL %s", resp.StatusCode, url)
 	}
 
-	// Parse success response
-	var loginResp PDPILoginResponse
-	if err := json.Unmarshal(bodyBytes, &loginResp); err != nil {
+	var members []SupabaseMember
+	if err := json.Unmarshal(bodyFromResponse(resp), &members); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	if !loginResp.Success {
-		return nil, fmt.Errorf("login failed: response indicates failure")
+	if len(members) == 0 {
+		return nil, fmt.Errorf("member not found")
 	}
 
-	return &loginResp, nil
+	return &members[0], nil
 }
 
-// GetMembers retrieves members list from PDPI API
-func (s *PDPIService) GetMembers(filter MembersFilter) (*PDPIMembersResponse, error) {
-	// Build query parameters
-	endpoint := "/api-members?"
+// FetchMemberByEmail retrieves a specific member by Email from Supabase
+func (s *PDPIService) FetchMemberByEmail(email string) (*SupabaseMember, error) {
+	// Filter: email=eq.VALUE
+	endpoint := fmt.Sprintf("/public_member_directory?email=eq.%s&limit=1", email)
+	url := s.getBaseURL() + endpoint
 
-	if filter.Page > 0 {
-		endpoint += fmt.Sprintf("page=%d&", filter.Page)
-	} else {
-		endpoint += "page=1&"
-	}
+	fmt.Printf("[PDPI Sync] Fetching member by Email: %s\n", url)
 
-	if filter.Limit > 0 {
-		endpoint += fmt.Sprintf("limit=%d&", filter.Limit)
-	} else {
-		endpoint += "limit=100&"
-	}
-
-	if filter.Cabang != "" {
-		endpoint += fmt.Sprintf("cabang=%s&", filter.Cabang)
-	}
-
-	if filter.Provinsi != "" {
-		endpoint += fmt.Sprintf("provinsi=%s&", filter.Provinsi)
-	}
-
-	if filter.Status != "" {
-		endpoint += fmt.Sprintf("status=%s&", filter.Status)
-	}
-
-	if filter.Search != "" {
-		endpoint += fmt.Sprintf("search=%s&", filter.Search)
-	}
-
-	resp, err := s.doRequest("GET", endpoint, nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("apikey", s.config.APIKey)
+	// req.Header.Set("Authorization", "Bearer "+s.config.APIKey) // Removed
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Read response body
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	// Check for error response
 	if resp.StatusCode != http.StatusOK {
-		var errResp PDPIErrorResponse
-		if err := json.Unmarshal(bodyBytes, &errResp); err != nil {
-			return nil, fmt.Errorf("PDPI API error (status %d): %s", resp.StatusCode, string(bodyBytes))
-		}
-		return nil, fmt.Errorf("PDPI API error: %s - %s", errResp.Error, errResp.Message)
+		return nil, fmt.Errorf("Supabase API error (status %d) at URL %s", resp.StatusCode, url)
 	}
 
-	// Parse success response
-	var membersResp PDPIMembersResponse
-	if err := json.Unmarshal(bodyBytes, &membersResp); err != nil {
+	var members []SupabaseMember
+	if err := json.Unmarshal(bodyFromResponse(resp), &members); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	return &membersResp, nil
+	if len(members) == 0 {
+		return nil, fmt.Errorf("member not found")
+	}
+
+	return &members[0], nil
 }
 
-// GetMemberByEmail retrieves a specific member by email
-func (s *PDPIService) GetMemberByEmail(email string) (*PDPIMember, error) {
-	filter := MembersFilter{
-		Page:   1,
-		Limit:  1,
-		Search: email,
-	}
-
-	resp, err := s.GetMembers(filter)
-	if err != nil {
-		return nil, err
-	}
-
-	if !resp.Success || len(resp.Data) == 0 {
-		return nil, fmt.Errorf("member not found with email: %s", email)
-	}
-
-	// Return first match
-	return &resp.Data[0], nil
+// Helper to read body safely
+func bodyFromResponse(resp *http.Response) []byte {
+	body, _ := io.ReadAll(resp.Body)
+	return body
 }
 
-// GetMemberByNPA retrieves a specific member by NPA
-func (s *PDPIService) GetMemberByNPA(npa string) (*PDPIMember, error) {
-	filter := MembersFilter{
-		Page:   1,
-		Limit:  1,
-		Search: npa,
+// getBaseURL handles sanitization and common config fixes
+func (s *PDPIService) getBaseURL() string {
+	baseURL := strings.TrimRight(s.config.BaseURL, "/")
+
+	// Auto-fix common mistake: user copied Edge Function URL (/functions/v1) instead of REST URL (/rest/v1)
+	if strings.Contains(baseURL, "/functions/v1") {
+		baseURL = strings.Replace(baseURL, "/functions/v1", "/rest/v1", 1)
+		fmt.Printf("[PDPI WARN] Auto-corrected BaseURL: replaced /functions/v1/ with /rest/v1/\n")
 	}
 
-	resp, err := s.GetMembers(filter)
-	if err != nil {
-		return nil, err
-	}
-
-	if !resp.Success || len(resp.Data) == 0 {
-		return nil, fmt.Errorf("member not found with NPA: %s", npa)
-	}
-
-	// Find exact NPA match
-	for _, member := range resp.Data {
-		if member.NPA == npa {
-			return &member, nil
-		}
-	}
-
-	return nil, fmt.Errorf("member not found with NPA: %s", npa)
+	return baseURL
 }

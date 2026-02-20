@@ -27,6 +27,171 @@ func NewPDPIController(db *sqlx.DB, cfg *config.Config) *PDPIController {
 	}
 }
 
+// Helper to map Supabase response to Local Model
+func (pc *PDPIController) mapSupabaseToLocal(pdpiMember services.SupabaseMember) *models.PDPIMember {
+	localMember := &models.PDPIMember{
+		ID:       pdpiMember.ID,
+		Nama:     pdpiMember.Nama,
+		SyncedAt: utils.TimeToPtr(time.Now()),
+	}
+
+	// Basic Fields
+	localMember.NPA = utils.PtrToString(pdpiMember.NPA) // Helper to handle nil pointer
+	if pdpiMember.NPANumeric != nil {
+		localMember.NPANumeric = pdpiMember.NPANumeric
+	}
+	if pdpiMember.Foto != nil {
+		localMember.Foto = pdpiMember.Foto
+	}
+	if pdpiMember.Gelar != nil {
+		localMember.Gelar = pdpiMember.Gelar
+	}
+	if pdpiMember.Gelar2 != nil {
+		localMember.Gelar2 = pdpiMember.Gelar2
+	}
+	if pdpiMember.Email != nil {
+		localMember.Email = pdpiMember.Email
+	}
+	if pdpiMember.NoHP != nil {
+		localMember.NoHP = pdpiMember.NoHP
+	}
+	if pdpiMember.NIK != nil {
+		localMember.NIK = pdpiMember.NIK
+	}
+	if pdpiMember.JenisKelamin != nil {
+		localMember.JenisKelamin = pdpiMember.JenisKelamin
+	}
+	if pdpiMember.TempatLahir != nil {
+		localMember.TempatLahir = pdpiMember.TempatLahir
+	}
+	if pdpiMember.AlamatRumah != nil {
+		localMember.AlamatRumah = pdpiMember.AlamatRumah
+	}
+	if pdpiMember.Cabang != nil {
+		localMember.Cabang = pdpiMember.Cabang
+	}
+	if pdpiMember.Provinsi != nil {
+		localMember.Provinsi = pdpiMember.Provinsi
+	}
+	if pdpiMember.KotaKabupaten != nil {
+		localMember.KotaKabupaten = pdpiMember.KotaKabupaten
+	}
+	if pdpiMember.KotaKabupatenKantor != nil {
+		localMember.KotaKabupatenKantor = pdpiMember.KotaKabupatenKantor
+	}
+	if pdpiMember.ProvinsiKantor != nil {
+		localMember.ProvinsiKantor = pdpiMember.ProvinsiKantor
+	}
+	if pdpiMember.Status != nil {
+		localMember.Status = pdpiMember.Status
+	}
+	if pdpiMember.Alumni != nil {
+		localMember.Alumni = pdpiMember.Alumni
+	}
+	if pdpiMember.ThnLulus != nil {
+		localMember.ThnLulus = pdpiMember.ThnLulus
+	}
+	if pdpiMember.TempatTugas != nil {
+		localMember.TempatTugas = pdpiMember.TempatTugas
+	}
+	if pdpiMember.Subspesialis != nil {
+		localMember.Subspesialis = pdpiMember.Subspesialis
+	}
+	if pdpiMember.GelarFISR != nil {
+		localMember.GelarFISR = pdpiMember.GelarFISR
+	}
+
+	// Praktek 1
+	if pdpiMember.TempatPraktek1 != nil {
+		localMember.TempatPraktek1 = pdpiMember.TempatPraktek1
+	}
+	if pdpiMember.TempatPraktek1Tipe != nil {
+		localMember.TempatPraktek1Tipe = pdpiMember.TempatPraktek1Tipe
+	}
+	if pdpiMember.TempatPraktek1Tipe2 != nil {
+		localMember.TempatPraktek1Tipe2 = pdpiMember.TempatPraktek1Tipe2
+	}
+	if pdpiMember.TempatPraktek1Alkes != nil {
+		localMember.TempatPraktek1Alkes = pdpiMember.TempatPraktek1Alkes
+	}
+	if pdpiMember.TempatPraktek1Alkes2 != nil {
+		localMember.TempatPraktek1Alkes2 = pdpiMember.TempatPraktek1Alkes2
+	}
+
+	// Praktek 2
+	if pdpiMember.TempatPraktek2 != nil {
+		localMember.TempatPraktek2 = pdpiMember.TempatPraktek2
+	}
+	if pdpiMember.TempatPraktek2Tipe != nil {
+		localMember.TempatPraktek2Tipe = pdpiMember.TempatPraktek2Tipe
+	}
+	if pdpiMember.TempatPraktek2Tipe2 != nil {
+		localMember.TempatPraktek2Tipe2 = pdpiMember.TempatPraktek2Tipe2
+	}
+	if pdpiMember.TempatPraktek2Alkes != nil {
+		localMember.TempatPraktek2Alkes = pdpiMember.TempatPraktek2Alkes
+	}
+	if pdpiMember.TempatPraktek2Alkes2 != nil {
+		localMember.TempatPraktek2Alkes2 = pdpiMember.TempatPraktek2Alkes2
+	}
+	if pdpiMember.KotaKabupatenPraktek2 != nil {
+		localMember.KotaKabupatenPraktek2 = pdpiMember.KotaKabupatenPraktek2
+	}
+	if pdpiMember.ProvinsiPraktek2 != nil {
+		localMember.ProvinsiPraktek2 = pdpiMember.ProvinsiPraktek2
+	}
+
+	// Praktek 3
+	if pdpiMember.TempatPraktek3 != nil {
+		localMember.TempatPraktek3 = pdpiMember.TempatPraktek3
+	}
+	if pdpiMember.TempatPraktek3Tipe != nil {
+		localMember.TempatPraktek3Tipe = pdpiMember.TempatPraktek3Tipe
+	}
+	if pdpiMember.TempatPraktek3Tipe2 != nil {
+		localMember.TempatPraktek3Tipe2 = pdpiMember.TempatPraktek3Tipe2
+	}
+	if pdpiMember.TempatPraktek3Alkes != nil {
+		localMember.TempatPraktek3Alkes = pdpiMember.TempatPraktek3Alkes
+	}
+	if pdpiMember.TempatPraktek3Alkes2 != nil {
+		localMember.TempatPraktek3Alkes2 = pdpiMember.TempatPraktek3Alkes2
+	}
+	if pdpiMember.KotaKabupatenPraktek3 != nil {
+		localMember.KotaKabupatenPraktek3 = pdpiMember.KotaKabupatenPraktek3
+	}
+	if pdpiMember.ProvinsiPraktek3 != nil {
+		localMember.ProvinsiPraktek3 = pdpiMember.ProvinsiPraktek3
+	}
+
+	// STR SIP
+	if pdpiMember.NoSTR != nil {
+		localMember.NoSTR = pdpiMember.NoSTR
+	}
+	if pdpiMember.NoSIP != nil {
+		localMember.NoSIP = pdpiMember.NoSIP
+	}
+
+	// Parse Dates
+	if pdpiMember.TglLahir != nil && *pdpiMember.TglLahir != "" {
+		if t, err := time.Parse("2006-01-02", *pdpiMember.TglLahir); err == nil {
+			localMember.TglLahir = utils.TimeToPtr(t)
+		}
+	}
+	if pdpiMember.STRBerlakuSampai != nil && *pdpiMember.STRBerlakuSampai != "" {
+		if t, err := time.Parse("2006-01-02", *pdpiMember.STRBerlakuSampai); err == nil {
+			localMember.STRBerlakuSampai = utils.TimeToPtr(t)
+		}
+	}
+	if pdpiMember.SIPBerlakuSampai != nil && *pdpiMember.SIPBerlakuSampai != "" {
+		if t, err := time.Parse("2006-01-02", *pdpiMember.SIPBerlakuSampai); err == nil {
+			localMember.SIPBerlakuSampai = utils.TimeToPtr(t)
+		}
+	}
+
+	return localMember
+}
+
 // SyncMember syncs a PDPI member data with local database using user's email
 // POST /api/v1/pdpi/sync-member
 // Request body: { "email": "user@example.com" } or empty (will use authenticated user's email)
@@ -76,60 +241,18 @@ func (pc *PDPIController) SyncMember(c *gin.Context) {
 		emailToSync = user.Email
 	}
 
-	// Get member data from PDPI API
-	pdpiMember, err := pc.pdpiService.GetMemberByEmail(emailToSync)
+	// Get member data from Supabase API
+	pdpiMember, err := pc.pdpiService.FetchMemberByEmail(emailToSync)
 	if err != nil {
-		utils.Error(c, http.StatusNotFound, "member_not_found", "PDPI member not found: "+err.Error(), nil)
+		utils.Error(c, http.StatusNotFound, "member_not_found", "PDPI member not found in Supabase: "+err.Error(), nil)
 		return
 	}
 
-	// Convert PDPI API response to local model
-	localMember := &models.PDPIMember{
-		ID:             pdpiMember.ID,
-		NPA:            pdpiMember.NPA,
-		Nama:           pdpiMember.Nama,
-		Gelar:          utils.StringToPtr(pdpiMember.Gelar),
-		Gelar2:         utils.StringToPtr(pdpiMember.Gelar2),
-		Email:          utils.StringToPtr(pdpiMember.Email),
-		NoHP:           utils.StringToPtr(pdpiMember.NoHP),
-		NIK:            utils.StringToPtr(pdpiMember.NIK),
-		JenisKelamin:   utils.StringToPtr(pdpiMember.JenisKelamin),
-		TempatLahir:    utils.StringToPtr(pdpiMember.TempatLahir),
-		AlamatRumah:    utils.StringToPtr(pdpiMember.AlamatRumah),
-		Cabang:         utils.StringToPtr(pdpiMember.Cabang),
-		Provinsi:       utils.StringToPtr(pdpiMember.Provinsi),
-		KotaKabupaten:  utils.StringToPtr(pdpiMember.KotaKabupaten),
-		Status:         utils.StringToPtr(pdpiMember.Status),
-		Alumni:         utils.StringToPtr(pdpiMember.Alumni),
-		ThnLulus:       utils.Int64ToPtr(int64(pdpiMember.ThnLulus)),
-		TempatTugas:    utils.StringToPtr(pdpiMember.TempatTugas),
-		TempatPraktek1: utils.StringToPtr(pdpiMember.TempatPraktek1),
-		TempatPraktek2: utils.StringToPtr(pdpiMember.TempatPraktek2),
-		Subspesialis:   utils.StringToPtr(pdpiMember.Subspesialis),
-		NoSTR:          utils.StringToPtr(pdpiMember.NoSTR),
-		NoSIP:          utils.StringToPtr(pdpiMember.NoSIP),
-		SyncedAt:       utils.TimeToPtr(time.Now()),
-	}
-
-	// Parse dates if provided
-	if pdpiMember.TglLahir != "" {
-		if t, err := time.Parse("2006-01-02", pdpiMember.TglLahir); err == nil {
-			localMember.TglLahir = utils.TimeToPtr(t)
-		}
-	}
-	if pdpiMember.STRBerlakuSampai != "" {
-		if t, err := time.Parse("2006-01-02", pdpiMember.STRBerlakuSampai); err == nil {
-			localMember.STRBerlakuSampai = utils.TimeToPtr(t)
-		}
-	}
-	if pdpiMember.SIPBerlakuSampai != "" {
-		if t, err := time.Parse("2006-01-02", pdpiMember.SIPBerlakuSampai); err == nil {
-			localMember.SIPBerlakuSampai = utils.TimeToPtr(t)
-		}
-	}
+	// Map and Save
+	localMember := pc.mapSupabaseToLocal(*pdpiMember)
 
 	// Link to current user if emails match
-	if emailToSync == user.Email {
+	if localMember.Email != nil && *localMember.Email == user.Email {
 		localMember.UserID = utils.Int64ToPtr(userIDInt64)
 	}
 
@@ -145,9 +268,9 @@ func (pc *PDPIController) SyncMember(c *gin.Context) {
 	})
 }
 
-// SyncAllMembers syncs ALL PDPI members from API to local database
+// SyncAllMembers syncs ALL PDPI members from Supabase API to local database
 // POST /api/v1/pdpi/sync-all-members
-// This is an admin-only operation with pagination handling
+// This is an admin-only operation
 func (pc *PDPIController) SyncAllMembers(c *gin.Context) {
 	startTime := time.Now()
 
@@ -159,110 +282,36 @@ func (pc *PDPIController) SyncAllMembers(c *gin.Context) {
 		errorMessages []string
 	)
 
-	// Fetch all pages from PDPI API
-	page := 1
-	limit := 100 // Fetch 100 members per page
-	hasMore := true
+	// Fetch all members from Supabase via Service
+	supabaseMembers, err := pc.pdpiService.FetchMembersFromSupabase()
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "supabase_error", "Failed to fetch members from Supabase: "+err.Error(), nil)
+		return
+	}
 
-	for hasMore {
-		// Fetch current page
-		filter := services.MembersFilter{
-			Page:  page,
-			Limit: limit,
+	totalFetched = len(supabaseMembers)
+
+	// Process each member
+	for _, pdpiMember := range supabaseMembers {
+		// Map to local model
+		localMember := pc.mapSupabaseToLocal(pdpiMember)
+
+		// Try to link to existing user by email
+		if localMember.Email != nil && *localMember.Email != "" {
+			user, _ := models.FindByEmail(pc.db, *localMember.Email)
+			if user != nil {
+				localMember.UserID = utils.Int64ToPtr(user.ID)
+			}
 		}
 
-		resp, err := pc.pdpiService.GetMembers(filter)
+		// Upsert to database
+		err = models.UpsertPDPIMember(pc.db, localMember)
 		if err != nil {
-			errorMsg := fmt.Sprintf("Failed to fetch page %d: %v", page, err)
-			errorMessages = append(errorMessages, errorMsg)
-			break
+			totalFailed++
+			continue
 		}
 
-		if !resp.Success {
-			errorMsg := fmt.Sprintf("PDPI API returned unsuccessful response for page %d", page)
-			errorMessages = append(errorMessages, errorMsg)
-			break
-		}
-
-		// Process each member in current page
-		for _, pdpiMember := range resp.Data {
-			totalFetched++
-
-			// Convert to local model
-			localMember := &models.PDPIMember{
-				ID:             pdpiMember.ID,
-				NPA:            pdpiMember.NPA,
-				Nama:           pdpiMember.Nama,
-				Gelar:          utils.StringToPtr(pdpiMember.Gelar),
-				Gelar2:         utils.StringToPtr(pdpiMember.Gelar2),
-				Email:          utils.StringToPtr(pdpiMember.Email),
-				NoHP:           utils.StringToPtr(pdpiMember.NoHP),
-				NIK:            utils.StringToPtr(pdpiMember.NIK),
-				JenisKelamin:   utils.StringToPtr(pdpiMember.JenisKelamin),
-				TempatLahir:    utils.StringToPtr(pdpiMember.TempatLahir),
-				AlamatRumah:    utils.StringToPtr(pdpiMember.AlamatRumah),
-				Cabang:         utils.StringToPtr(pdpiMember.Cabang),
-				Provinsi:       utils.StringToPtr(pdpiMember.Provinsi),
-				KotaKabupaten:  utils.StringToPtr(pdpiMember.KotaKabupaten),
-				Status:         utils.StringToPtr(pdpiMember.Status),
-				Alumni:         utils.StringToPtr(pdpiMember.Alumni),
-				ThnLulus:       utils.Int64ToPtr(int64(pdpiMember.ThnLulus)),
-				TempatTugas:    utils.StringToPtr(pdpiMember.TempatTugas),
-				TempatPraktek1: utils.StringToPtr(pdpiMember.TempatPraktek1),
-				TempatPraktek2: utils.StringToPtr(pdpiMember.TempatPraktek2),
-				Subspesialis:   utils.StringToPtr(pdpiMember.Subspesialis),
-				NoSTR:          utils.StringToPtr(pdpiMember.NoSTR),
-				NoSIP:          utils.StringToPtr(pdpiMember.NoSIP),
-				SyncedAt:       utils.TimeToPtr(time.Now()),
-			}
-
-			// Parse dates
-			if pdpiMember.TglLahir != "" {
-				if t, err := time.Parse("2006-01-02", pdpiMember.TglLahir); err == nil {
-					localMember.TglLahir = utils.TimeToPtr(t)
-				}
-			}
-			if pdpiMember.STRBerlakuSampai != "" {
-				if t, err := time.Parse("2006-01-02", pdpiMember.STRBerlakuSampai); err == nil {
-					localMember.STRBerlakuSampai = utils.TimeToPtr(t)
-				}
-			}
-			if pdpiMember.SIPBerlakuSampai != "" {
-				if t, err := time.Parse("2006-01-02", pdpiMember.SIPBerlakuSampai); err == nil {
-					localMember.SIPBerlakuSampai = utils.TimeToPtr(t)
-				}
-			}
-
-			// Try to link to existing user by email
-			if pdpiMember.Email != "" {
-				user, _ := models.FindByEmail(pc.db, pdpiMember.Email)
-				if user != nil {
-					localMember.UserID = utils.Int64ToPtr(user.ID)
-				}
-			}
-
-			// Upsert to database
-			err = models.UpsertPDPIMember(pc.db, localMember)
-			if err != nil {
-				totalFailed++
-				errorMsg := fmt.Sprintf("Failed to sync member %s (NPA: %s): %v", pdpiMember.Nama, pdpiMember.NPA, err)
-				errorMessages = append(errorMessages, errorMsg)
-				// Continue processing other members
-				continue
-			}
-
-			totalSynced++
-		}
-
-		// Check if there are more pages
-		// Use length of data instead of TotalPages since some APIs don't return reliable TotalPages
-		if len(resp.Data) < limit {
-			// If we got less data than requested, we've reached the end
-			hasMore = false
-		} else {
-			// Continue to next page
-			page++
-		}
+		totalSynced++
 	}
 
 	duration := time.Since(startTime)
@@ -273,7 +322,6 @@ func (pc *PDPIController) SyncAllMembers(c *gin.Context) {
 		"total_synced":  totalSynced,
 		"total_failed":  totalFailed,
 		"duration_ms":   duration.Milliseconds(),
-		"pages_fetched": page,
 	}
 
 	if len(errorMessages) > 0 {
@@ -293,27 +341,8 @@ func (pc *PDPIController) GetMembers(c *gin.Context) {
 	source := c.DefaultQuery("source", "local") // local or api
 
 	if source == "api" {
-		// Fetch from PDPI API
-		filter := services.MembersFilter{
-			Page:     utils.QueryInt(c, "page", 1),
-			Limit:    utils.QueryInt(c, "limit", 100),
-			Cabang:   c.Query("cabang"),
-			Provinsi: c.Query("provinsi"),
-			Status:   c.Query("status"),
-			Search:   c.Query("search"),
-		}
-
-		resp, err := pc.pdpiService.GetMembers(filter)
-		if err != nil {
-			utils.Error(c, http.StatusInternalServerError, "pdpi_api_error", "Failed to fetch from PDPI API: "+err.Error(), nil)
-			return
-		}
-
-		utils.Success(c, http.StatusOK, "Members fetched from PDPI API", gin.H{
-			"members":    resp.Data,
-			"pagination": resp.Pagination,
-			"source":     "api",
-		})
+		utils.Error(c, http.StatusBadRequest, "deprecated", "Direct API access is deprecated on this version. Please sync members first then use source=local", nil)
+		return
 	} else {
 		// Fetch from local database
 		query := "SELECT * FROM pdpi_members WHERE 1=1"
@@ -422,17 +451,8 @@ func (pc *PDPIController) GetMemberByNPA(c *gin.Context) {
 		return
 	}
 
-	// If not found locally, try PDPI API
-	pdpiMember, err := pc.pdpiService.GetMemberByNPA(npa)
-	if err != nil {
-		utils.Error(c, http.StatusNotFound, "member_not_found", "Member not found: "+err.Error(), nil)
-		return
-	}
-
-	utils.Success(c, http.StatusOK, "Member found in PDPI API", gin.H{
-		"member": pdpiMember,
-		"source": "api",
-	})
+	// If not found locally, inform user to sync
+	utils.Error(c, http.StatusNotFound, "member_not_found", "Member not found in local database. Please sync member data first.", nil)
 }
 
 // GetMyMemberData retrieves PDPI member data for authenticated user
@@ -495,7 +515,7 @@ func (pc *PDPIController) GetMyMemberData(c *gin.Context) {
 // This is a public endpoint for member directory feature
 func (pc *PDPIController) SearchPublicMembers(c *gin.Context) {
 	// Build query with filters
-	query := "SELECT id, npa, nama, gelar, gelar2, email, cabang, provinsi, kota_kabupaten, status, tempat_praktek_1, tempat_praktek_2, alumni FROM pdpi_members WHERE 1=1"
+	query := "SELECT id, npa, nama, gelar, gelar2, email, cabang, provinsi, kota_kabupaten, status, tempat_praktek_1, tempat_praktek_2, alumni, foto FROM pdpi_members WHERE 1=1"
 	var args []interface{}
 
 	// Apply filters
@@ -543,6 +563,7 @@ func (pc *PDPIController) SearchPublicMembers(c *gin.Context) {
 		TempatPraktek1 *string `db:"tempat_praktek_1" json:"tempat_praktek_1"`
 		TempatPraktek2 *string `db:"tempat_praktek_2" json:"tempat_praktek_2"`
 		Alumni         *string `db:"alumni" json:"alumni"`
+		Foto           *string `db:"foto" json:"foto"`
 	}
 
 	// Query with COALESCE to handle NULL values
@@ -557,7 +578,8 @@ func (pc *PDPIController) SearchPublicMembers(c *gin.Context) {
 		"COALESCE(status, '') as status, " +
 		"COALESCE(tempat_praktek_1, '') as tempat_praktek_1, " +
 		"COALESCE(tempat_praktek_2, '') as tempat_praktek_2, " +
-		"COALESCE(alumni, '') as alumni " +
+		"COALESCE(alumni, '') as alumni, " +
+		"COALESCE(foto, '') as foto " +
 		"FROM pdpi_members WHERE nama IS NOT NULL AND nama != ''"
 	args = []interface{}{}
 

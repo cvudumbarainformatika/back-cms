@@ -87,8 +87,8 @@ type PDPIConfig struct {
 
 // LoadConfig loads configuration from .env file and environment variables
 func LoadConfig() (*Config, error) {
-	// Load .env file if it exists (ignore error if file doesn't exist)
-	_ = godotenv.Load()
+	// Load .env file using Overload to overwrite potential stale system env vars
+	_ = godotenv.Overload()
 
 	config := &Config{
 		App: AppConfig{
@@ -129,8 +129,8 @@ func LoadConfig() (*Config, error) {
 			DB:       getEnvAsInt("REDIS_DB", 0),
 		},
 		PDPI: PDPIConfig{
-			BaseURL: getEnv("PDPI_BASE_URL", "https://zxlccvozsbjmwrjbwyrr.supabase.co/functions/v1"),
-			APIKey:  getEnv("PDPI_API_KEY", ""),
+			BaseURL: getEnv("PDPI_BASE_URL", "https://zxlccvozsbjmwrjbwyrr.supabase.co/rest/v1"),
+			APIKey:  strings.TrimSpace(getEnv("PDPI_API_KEY", "")),
 			Timeout: getEnvAsInt("PDPI_TIMEOUT", 30),
 		},
 		Mail: MailConfig{

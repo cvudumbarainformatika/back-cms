@@ -24,3 +24,11 @@ func TimeToPtr(t time.Time) *time.Time {
 func BoolToPtr(b bool) *bool {
 	return &b
 }
+
+// PtrToString safely dereferences a string pointer
+func PtrToString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}

@@ -4,11 +4,9 @@ import (
 	"database/sql"
 	"net/http"
 	"strings"
-	"time"
 
 	requests "github.com/cvudumbarainformatika/backend/app/Http/Requests"
 	models "github.com/cvudumbarainformatika/backend/app/Models"
-	services "github.com/cvudumbarainformatika/backend/app/Services"
 	"github.com/cvudumbarainformatika/backend/config"
 	"github.com/cvudumbarainformatika/backend/utils"
 	"github.com/gin-gonic/gin"
@@ -148,12 +146,8 @@ func (ac *AuthController) Login(c *gin.Context) {
 		return
 	}
 
-	var pdpiResp *services.PDPILoginResponse
-	var pdpiErr error
-	pdpiService := services.NewPDPIService(&ac.config.PDPI)
-
-	// Helper function for post-login actions (sync & token gen)
-	handleSuccess := func(u *models.User, fromPDPI bool) {
+	// Helper function for post-login actions (token gen only)
+	handleSuccess := func(u *models.User) {
 		// Verify status
 		if u.Status == "pending" {
 			utils.Error(c, http.StatusUnauthorized, "user_pending", "Menunggu verifikasi Admin", nil)
@@ -203,125 +197,22 @@ func (ac *AuthController) Login(c *gin.Context) {
 			"refresh_token": refreshToken,
 			"expires_in":    ac.config.JWT.AccessTokenExpiration * 60,
 		})
-
-		// Background: Sync PDPI member data if logged in via PDPI or periodically
-		// For now, if we have PDPI response, we sync the member data to local DB
-		if fromPDPI && pdpiResp != nil && pdpiResp.Success && pdpiResp.Member.NPA != "" {
-			// Sync logic (simplified from previous implementation)
-			localMember := &models.PDPIMember{
-				ID:             pdpiResp.Member.ID,
-				NPA:            pdpiResp.Member.NPA,
-				Nama:           pdpiResp.Member.Nama,
-				Gelar:          utils.StringToPtr(pdpiResp.Member.Gelar),
-				Gelar2:         utils.StringToPtr(pdpiResp.Member.Gelar2),
-				Email:          utils.StringToPtr(pdpiResp.Member.Email),
-				NoHP:           utils.StringToPtr(pdpiResp.Member.NoHP),
-				NIK:            utils.StringToPtr(pdpiResp.Member.NIK),
-				JenisKelamin:   utils.StringToPtr(pdpiResp.Member.JenisKelamin),
-				TempatLahir:    utils.StringToPtr(pdpiResp.Member.TempatLahir),
-				AlamatRumah:    utils.StringToPtr(pdpiResp.Member.AlamatRumah),
-				Cabang:         utils.StringToPtr(pdpiResp.Member.Cabang),
-				Provinsi:       utils.StringToPtr(pdpiResp.Member.Provinsi),
-				KotaKabupaten:  utils.StringToPtr(pdpiResp.Member.KotaKabupaten),
-				Status:         utils.StringToPtr(pdpiResp.Member.Status),
-				Alumni:         utils.StringToPtr(pdpiResp.Member.Alumni),
-				ThnLulus:       utils.Int64ToPtr(int64(pdpiResp.Member.ThnLulus)),
-				TempatTugas:    utils.StringToPtr(pdpiResp.Member.TempatTugas),
-				TempatPraktek1: utils.StringToPtr(pdpiResp.Member.TempatPraktek1),
-				TempatPraktek2: utils.StringToPtr(pdpiResp.Member.TempatPraktek2),
-				Subspesialis:   utils.StringToPtr(pdpiResp.Member.Subspesialis),
-				NoSTR:          utils.StringToPtr(pdpiResp.Member.NoSTR),
-				NoSIP:          utils.StringToPtr(pdpiResp.Member.NoSIP),
-				UserID:         utils.Int64ToPtr(u.ID),
-				SyncedAt:       utils.TimeToPtr(time.Now()),
-			}
-
-			// Parse dates
-			if t, err := time.Parse("2006-01-02", pdpiResp.Member.TglLahir); err == nil {
-				localMember.TglLahir = utils.TimeToPtr(t)
-			}
-			if t, err := time.Parse("2006-01-02", pdpiResp.Member.STRBerlakuSampai); err == nil {
-				localMember.STRBerlakuSampai = utils.TimeToPtr(t)
-			}
-			if t, err := time.Parse("2006-01-02", pdpiResp.Member.SIPBerlakuSampai); err == nil {
-				localMember.SIPBerlakuSampai = utils.TimeToPtr(t)
-			}
-
-			// Upsert to DB
-			_ = models.UpsertPDPIMember(ac.db, localMember)
-		}
 	}
 
 	if user != nil {
 		// Condition 1: User Exists in Local DB
-
-		// 1a. Verify Password
+		// Verify Password
 		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 		if err == nil {
 			// Password Match! Login Success (Local Auth)
-			handleSuccess(user, false) // Not explicit from PDPI, using local data
+			handleSuccess(user)
 			return
 		}
-
-		// Password Invalid: Try PDPI Auth (Hybrid Check)
-		// Maybe user changed password in PDPI portal
-		pdpiResp, pdpiErr = pdpiService.Login(req.Email, req.Password)
-		if pdpiErr == nil && pdpiResp != nil && pdpiResp.Success {
-			// PDPI Success! User changed password.
-			// Update local password
-			hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-			user.Password = string(hashedPassword)
-			_ = user.Update(ac.db) // Update password in DB
-
-			handleSuccess(user, true) // From PDPI
-			return
-		}
-
-		// Both Local and PDPI failed
-		utils.Error(c, http.StatusUnauthorized, "invalid_credentials", "Invalid email or password", nil)
-		return
-
-	} else {
-		// Condition 2: User NOT Found in Local DB
-		// Try PDPI Auth
-		pdpiResp, pdpiErr = pdpiService.Login(req.Email, req.Password)
-
-		if pdpiErr == nil && pdpiResp != nil && pdpiResp.Success {
-			// PDPI Success! Auto-Create User
-			hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-			if err != nil {
-				utils.Error(c, http.StatusInternalServerError, "hashing_error", "Failed to hash password", nil)
-				return
-			}
-
-			user = &models.User{
-				Name:     pdpiResp.Member.Nama,
-				Email:    req.Email,
-				Password: string(hashedPassword),
-				Role:     "member", // Default role
-				Status:   "active", // Auto-active
-			}
-
-			if pdpiResp.Member.NoHP != "" {
-				user.Phone = sql.NullString{String: pdpiResp.Member.NoHP, Valid: true}
-			}
-			if pdpiResp.Member.Cabang != "" {
-				user.Cabang = sql.NullString{String: pdpiResp.Member.Cabang, Valid: true}
-			}
-
-			if err := user.Create(ac.db); err != nil {
-				utils.Error(c, http.StatusInternalServerError, "registration_error", "Failed to create user from PDPI data", nil)
-				return
-			}
-
-			handleSuccess(user, true) // From PDPI
-			return
-		}
-
-		// PDPI also failed
-		utils.Error(c, http.StatusUnauthorized, "invalid_credentials", "Invalid email or password", nil)
-		return
 	}
+
+	// If user not found or password invalid, return error
+	// PDPI Hybrid Auth is DISABLED due to migration to Supabase
+	utils.Error(c, http.StatusUnauthorized, "invalid_credentials", "Invalid email or password", nil)
 }
 
 // Me retrieves the current authenticated user's information
