@@ -149,6 +149,15 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				beritaAdmin.DELETE("/:id", beritaController.Delete)
 			}
 
+			// Agenda Management routes (Admin only)
+			agendaAdmin := protected.Group("/agenda")
+			{
+				agendaAdmin.POST("", agendaController.Create)
+				agendaAdmin.PUT("/:id", agendaController.Update)
+				agendaAdmin.PATCH("/:id", agendaController.Patch)
+				agendaAdmin.DELETE("/:id", agendaController.Delete)
+			}
+
 			// Broadcast routes (Admin only)
 			broadcastAdmin := protected.Group("/broadcast")
 			{

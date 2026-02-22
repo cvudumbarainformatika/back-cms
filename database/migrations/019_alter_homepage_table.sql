@@ -1,0 +1,5 @@
+-- Intentionally blank. 
+-- The homepage table alter MUST be run MANUALLY on production due to Go migration runner limitations with IF NOT EXISTS.
+-- Run this in production:
+-- ALTER TABLE homepage ADD COLUMN content JSON COMMENT 'Consolidated content data' AFTER id, ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER content;
+-- ALTER TABLE homepage DROP COLUMN hero, DROP COLUMN stats, DROP COLUMN features, DROP COLUMN seo;
