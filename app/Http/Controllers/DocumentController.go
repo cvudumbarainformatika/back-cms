@@ -37,12 +37,12 @@ func (dc *DocumentController) GetList(c *gin.Context) {
 	}
 	userID := userIDInterface.(int64)
 
-	roleInterface, roleExists := c.Get("user_role")
-	if !roleExists {
-		utils.Error(c, http.StatusUnauthorized, "unauthorized", "User role not found", nil)
+	user, err := models.FindByID(dc.db, userID)
+	if err != nil || user == nil {
+		utils.Error(c, http.StatusUnauthorized, "unauthorized", "User not found", nil)
 		return
 	}
-	role := roleInterface.(string)
+	role := user.Role
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -60,7 +60,6 @@ func (dc *DocumentController) GetList(c *gin.Context) {
 
 	var documents []models.Document
 	var total int64
-	var err error
 
 	if role == "admin" || role == "super_admin" {
 		// Admin logic: If a specific user_id is requested, fetch theirs. Otherwise fetch all.
@@ -201,8 +200,12 @@ func (dc *DocumentController) Delete(c *gin.Context) {
 	}
 	userID := userIDInterface.(int64)
 
-	roleInterface, _ := c.Get("user_role")
-	role := roleInterface.(string)
+	user, err := models.FindByID(dc.db, userID)
+	if err != nil || user == nil {
+		utils.Error(c, http.StatusUnauthorized, "unauthorized", "User not found", nil)
+		return
+	}
+	role := user.Role
 
 	docID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
