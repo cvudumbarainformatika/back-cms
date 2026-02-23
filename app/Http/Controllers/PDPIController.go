@@ -229,22 +229,29 @@ func (pc *PDPIController) SyncMember(c *gin.Context) {
 		return
 	}
 
-	// Parse request (optional email)
+	// Parse request (optional email or npa)
 	var reqBody struct {
 		Email string `json:"email"`
+		NPA   string `json:"npa"`
 	}
 	_ = c.ShouldBindJSON(&reqBody)
 
-	// Use user's email if not provided
-	emailToSync := reqBody.Email
-	if emailToSync == "" {
-		emailToSync = user.Email
+	var pdpiMember *services.SupabaseMember
+	var fetchErr error
+
+	if reqBody.NPA != "" {
+		pdpiMember, fetchErr = pc.pdpiService.FetchMemberByNPA(reqBody.NPA)
+	} else {
+		// Use user's email if not provided
+		emailToSync := reqBody.Email
+		if emailToSync == "" {
+			emailToSync = user.Email
+		}
+		pdpiMember, fetchErr = pc.pdpiService.FetchMemberByEmail(emailToSync)
 	}
 
-	// Get member data from Supabase API
-	pdpiMember, err := pc.pdpiService.FetchMemberByEmail(emailToSync)
-	if err != nil {
-		utils.Error(c, http.StatusNotFound, "member_not_found", "PDPI member not found in Supabase: "+err.Error(), nil)
+	if fetchErr != nil {
+		utils.Error(c, http.StatusNotFound, "member_not_found", "PDPI member not found in Supabase: "+fetchErr.Error(), nil)
 		return
 	}
 
