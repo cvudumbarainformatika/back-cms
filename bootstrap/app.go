@@ -8,7 +8,6 @@ import (
 	middleware "github.com/cvudumbarainformatika/backend/app/Http/Middleware"
 	"github.com/cvudumbarainformatika/backend/config"
 	"github.com/cvudumbarainformatika/backend/database"
-	"github.com/cvudumbarainformatika/backend/database/seeders"
 	"github.com/cvudumbarainformatika/backend/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -70,16 +69,16 @@ func NewApplication() (*Application, error) {
 
 	log.Println("Database connection established successfully")
 
-	// Run migrations
-	migrator := database.NewMigrator(db.DB, "database/migrations")
-	if err := migrator.RunMigrations(); err != nil {
-		return nil, fmt.Errorf("failed to run migrations: %w", err)
-	}
+	// Run migrations (Manual execution recommended)
+	// migrator := database.NewMigrator(db.DB, "database/migrations")
+	// if err := migrator.RunMigrations(); err != nil {
+	// 	return nil, fmt.Errorf("failed to run migrations: %w", err)
+	// }
 
-	// Run seeders
-	if err := seeders.RunSeeders(db.DB); err != nil {
-		return nil, fmt.Errorf("failed to run seeders: %w", err)
-	}
+	// Run seeders (Manual execution recommended)
+	// if err := seeders.RunSeeders(db.DB); err != nil {
+	// 	return nil, fmt.Errorf("failed to run seeders: %w", err)
+	// }
 
 	// Setup Redis connection
 	rdb, err := database.InitRedis(cfg)
