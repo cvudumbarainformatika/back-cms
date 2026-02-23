@@ -49,6 +49,7 @@ func (dc *DocumentController) GetList(c *gin.Context) {
 	offset := (page - 1) * limit
 	status := c.Query("status")
 	docType := c.Query("type")
+	search := c.Query("search")
 
 	filters := map[string]interface{}{}
 	if status != "" {
@@ -57,11 +58,14 @@ func (dc *DocumentController) GetList(c *gin.Context) {
 	if docType != "" {
 		filters["type"] = docType
 	}
+	if search != "" {
+		filters["search"] = search
+	}
 
 	var documents []models.Document
 	var total int64
 
-	if role == "admin" || role == "super_admin" {
+	if role == "admin" || role == "super_admin" || role == "admin_pusat" {
 		// Admin logic: If a specific user_id is requested, fetch theirs. Otherwise fetch all.
 		targetUserIDStr := c.Query("user_id")
 		if targetUserIDStr != "" {
@@ -75,7 +79,7 @@ func (dc *DocumentController) GetList(c *gin.Context) {
 		} else {
 			// For admins to see EVERYTHING, we need a slight query modification.
 			// Currently models.GetUserDocuments enforces user_id = ?.
-			// Let's implement a quick custom query for admin viewing all active documents.
+			// Let's implement a custom query for admin viewing all active documents.
 			query := `SELECT id, user_id, name, type, valid_until, status, file_url, created_at, updated_at FROM documents WHERE deleted_at IS NULL`
 			countQuery := `SELECT COUNT(*) FROM documents WHERE deleted_at IS NULL`
 
@@ -89,6 +93,11 @@ func (dc *DocumentController) GetList(c *gin.Context) {
 				query += ` AND status = ?`
 				countQuery += ` AND status = ?`
 				args = append(args, status)
+			}
+			if search != "" {
+				query += ` AND name LIKE ?`
+				countQuery += ` AND name LIKE ?`
+				args = append(args, "%"+search+"%")
 			}
 
 			err = dc.db.Get(&total, countQuery, args...)
@@ -224,7 +233,7 @@ func (dc *DocumentController) Delete(c *gin.Context) {
 	}
 
 	// Authorization check
-	if role != "admin" && role != "super_admin" && document.UserID != userID {
+	if role != "admin" && role != "super_admin" && role != "admin_pusat" && document.UserID != userID {
 		utils.Error(c, http.StatusForbidden, "forbidden", "You do not have permission to delete this document", nil)
 		return
 	}

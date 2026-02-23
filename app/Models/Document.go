@@ -83,6 +83,12 @@ func GetUserDocuments(db *sqlx.DB, userID int64, filters map[string]interface{},
 		args = append(args, status)
 		countArgs = append(countArgs, status)
 	}
+	if search, ok := filters["search"].(string); ok && search != "" {
+		query += ` AND name LIKE ?`
+		countQuery += ` AND name LIKE ?`
+		args = append(args, "%"+search+"%")
+		countArgs = append(countArgs, "%"+search+"%")
+	}
 
 	// Get total count
 	var total int64

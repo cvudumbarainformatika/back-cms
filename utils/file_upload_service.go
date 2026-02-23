@@ -75,8 +75,8 @@ var FileUploadConfigs = map[FileUploadType]FileUploadConfig{
 	FileTypeDokumen: {
 		FileType:     FileTypeDokumen,
 		MaxSize:      50 * 1024 * 1024, // 50MB
-		AllowedTypes: []string{"application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
-		AllowedExts:  []string{".pdf", ".doc", ".docx"},
+		AllowedTypes: []string{"application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "image/jpeg", "image/png", "image/webp", "application/zip", "application/x-zip-compressed"},
+		AllowedExts:  []string{".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".webp", ".zip"},
 		CreateThumb:  false,
 	},
 	FileTypeGaleri: {
