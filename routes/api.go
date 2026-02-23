@@ -32,6 +32,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	broadcastController := controllers.NewBroadcastController(mailService, db, cfg.App)
 	memberController := controllers.NewMemberController(db)
 	dashboardController := controllers.NewDashboardController(db)
+	documentController := controllers.NewDocumentController(db, cfg)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -185,6 +186,14 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				membersAdmin.GET("/filter-options", memberController.GetFilterOptions)
 				membersAdmin.GET("/:id", memberController.GetMemberByID)
 				membersAdmin.PUT("/:id", memberController.UpdateMember)
+			}
+
+			// Document Management routes (Protected)
+			documents := protected.Group("/documents")
+			{
+				documents.GET("", documentController.GetList)
+				documents.POST("", documentController.Upload)
+				documents.DELETE("/:id", documentController.Delete)
 			}
 
 			// PDPI Integration routes (Protected)
