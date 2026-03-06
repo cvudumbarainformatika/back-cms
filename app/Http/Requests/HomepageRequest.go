@@ -6,9 +6,12 @@ import (
 )
 
 type UpdateHomepageRequest struct {
-	Hero  map[string]interface{}   `json:"hero" binding:"required"`
-	Stats []map[string]interface{} `json:"stats" binding:"required"`
-	SEO   map[string]interface{}   `json:"seo" binding:"required"`
+	Theme  string                   `json:"theme"`
+	Hero   map[string]interface{}   `json:"hero" binding:"required"`
+	About  map[string]interface{}   `json:"about"`
+	Stats  []map[string]interface{} `json:"stats" binding:"required"`
+	Footer map[string]interface{}   `json:"footer"`
+	SEO    map[string]interface{}   `json:"seo" binding:"required"`
 }
 
 func (r *UpdateHomepageRequest) Validate(c *gin.Context) error {
