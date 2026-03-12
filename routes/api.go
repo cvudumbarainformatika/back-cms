@@ -10,11 +10,12 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// SetupRoutes configures all application routes
-func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *config.Config) {
+// SetupRoutes configures all application routes and returns services that need scheduling
+func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *config.Config) *services.BirthdayService {
 	// Initialize Services
 	mailService := services.NewMailService(cfg.Mail)
-	// pdpiService := services.NewPDPIService(cfg.PDPI) // Commented out until PDPI Service is implemented
+	waService := services.NewWhatsAppService(cfg.Zuwinda)
+	birthdayService := services.NewBirthdayService(db, mailService, waService)
 
 	// Initialize controllers
 	authController := controllers.NewAuthController(db, cfg)
@@ -29,7 +30,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	contentController := controllers.NewContentController(db)
 	contentController.InitTable()
 	pdpiController := controllers.NewPDPIController(db, cfg)
-	broadcastController := controllers.NewBroadcastController(mailService, db, cfg.App)
+	broadcastController := controllers.NewBroadcastController(mailService, waService, birthdayService, db, cfg.App)
 	memberController := controllers.NewMemberController(db)
 	dashboardController := controllers.NewDashboardController(db)
 	documentController := controllers.NewDocumentController(db, cfg)
@@ -163,7 +164,10 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			broadcastAdmin := protected.Group("/broadcast")
 			{
 				broadcastAdmin.POST("/berita/:id", broadcastController.BroadcastBerita)
+				broadcastAdmin.POST("/berita-wa/:id", broadcastController.BroadcastBeritaWA)
 				broadcastAdmin.POST("/agenda/:id", broadcastController.BroadcastAgenda)
+				broadcastAdmin.POST("/agenda-wa/:id", broadcastController.BroadcastAgendaWA)
+				broadcastAdmin.POST("/birthday-check", broadcastController.TriggerBirthdayGreetings)
 			}
 
 			// Menu Management routes (Admin only)
@@ -215,4 +219,6 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			"database": "connected",
 		})
 	})
+
+	return birthdayService
 }

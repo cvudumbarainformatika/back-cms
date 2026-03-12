@@ -19,6 +19,7 @@ type Config struct {
 	Redis     RedisConfig
 	PDPI      PDPIConfig
 	Mail      MailConfig
+	Zuwinda   ZuwindaConfig
 }
 
 // AppConfig holds application-specific configuration
@@ -85,6 +86,13 @@ type PDPIConfig struct {
 	Timeout int // in seconds
 }
 
+// ZuwindaConfig holds Zuwinda API configuration
+type ZuwindaConfig struct {
+	AccountID string
+	AccessKey string
+	BaseURL   string
+}
+
 // LoadConfig loads configuration from .env file and environment variables
 func LoadConfig() (*Config, error) {
 	// Load .env file using Overload to overwrite potential stale system env vars
@@ -138,6 +146,11 @@ func LoadConfig() (*Config, error) {
 			Port:     getEnvAsInt("MAIL_PORT", 587),
 			User:     getEnv("MAIL_USER", ""),
 			Password: getEnv("MAIL_PASSWORD", ""),
+		},
+		Zuwinda: ZuwindaConfig{
+			AccountID: getEnv("ZUWINDA_ACCOUNT_ID", ""),
+			AccessKey: getEnv("ZUWINDA_ACCESS_KEY", ""),
+			BaseURL:   getEnv("ZUWINDA_BASE_URL", "https://api.zuwinda.com/v2"),
 		},
 	}
 

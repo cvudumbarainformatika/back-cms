@@ -3,7 +3,9 @@ package controllers
 import (
 	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/cvudumbarainformatika/backend/utils"
 	services "github.com/cvudumbarainformatika/backend/app/Services"
 	"github.com/cvudumbarainformatika/backend/config"
 	"github.com/gin-gonic/gin"
@@ -11,16 +13,20 @@ import (
 )
 
 type BroadcastController struct {
-	MailService *services.MailService
-	DB          *sqlx.DB
-	Config      config.AppConfig
+	MailService     *services.MailService
+	WAService       *services.WhatsAppService
+	BirthdayService *services.BirthdayService
+	DB              *sqlx.DB
+	Config          config.AppConfig
 }
 
-func NewBroadcastController(mailService *services.MailService, db *sqlx.DB, appConfig config.AppConfig) *BroadcastController {
+func NewBroadcastController(mailService *services.MailService, waService *services.WhatsAppService, birthdayService *services.BirthdayService, db *sqlx.DB, appConfig config.AppConfig) *BroadcastController {
 	return &BroadcastController{
-		MailService: mailService,
-		DB:          db,
-		Config:      appConfig,
+		MailService:     mailService,
+		WAService:       waService,
+		BirthdayService: birthdayService,
+		DB:              db,
+		Config:          appConfig,
 	}
 }
 
@@ -33,6 +39,14 @@ var recipients = []string{
 	"andi.meka.025@gmail.com",
 	"vpluzt@gmail.com",
 	"fafnir573@gmail.com",
+}
+
+// WhatsApp test recipients
+var waTestRecipients = []string{
+	"6281237660656",
+	"6282334148314",
+	"6285736336536",
+	"6282324141494",
 }
 
 // getRecipients determines who to email based on query param
@@ -66,6 +80,32 @@ func (ctrl *BroadcastController) getRecipients(c *gin.Context) ([]string, error)
 
 	// Default: Test list only (7 emails)
 	return recipients, nil
+}
+
+// getWARecipients determines who to WhatsApp based on query param
+func (ctrl *BroadcastController) getWARecipients(c *gin.Context) ([]string, error) {
+	target := c.Query("target")
+
+	if target == "all" {
+		var phones []string
+		query := "SELECT DISTINCT no_hp FROM pdpi_members WHERE no_hp IS NOT NULL AND no_hp != ''"
+		err := ctrl.DB.Select(&phones, query)
+		if err != nil {
+			return nil, err
+		}
+
+		var normalized []string
+		for _, p := range phones {
+			norm := utils.NormalizePhoneNumber(p)
+			if norm != "" {
+				normalized = append(normalized, norm)
+			}
+		}
+		return normalized, nil
+	}
+
+	// Default: Test numbers requested by user
+	return waTestRecipients, nil
 }
 
 func (ctrl *BroadcastController) BroadcastBerita(c *gin.Context) {
@@ -143,6 +183,76 @@ func (ctrl *BroadcastController) BroadcastBerita(c *gin.Context) {
 	})
 }
 
+func (ctrl *BroadcastController) BroadcastBeritaWA(c *gin.Context) {
+	id := c.Param("id")
+
+	// 1. Fetch Berita
+	var berita struct {
+		ID      int    `json:"id"`
+		Title   string `json:"title"`
+		Status  string `json:"status"`
+		Slug    string `json:"slug"`
+		Excerpt string `json:"excerpt"`
+	}
+
+	query := "SELECT id, title, status, slug, excerpt FROM berita WHERE id = ?"
+	err := ctrl.DB.QueryRow(query, id).Scan(&berita.ID, &berita.Title, &berita.Status, &berita.Slug, &berita.Excerpt)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Berita not found"})
+		return
+	}
+
+	// 2. Validate Status
+	if berita.Status != "published" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only published news can be shared via WhatsApp"})
+		return
+	}
+
+	// 3. Prepare Message Content
+	baseURL := ctrl.Config.BaseURL
+	if len(baseURL) > 0 && baseURL[len(baseURL)-1] == '/' {
+		baseURL = baseURL[:len(baseURL)-1]
+	}
+
+	readMoreLink := fmt.Sprintf("%s/berita/%s", baseURL, berita.Slug)
+	message := fmt.Sprintf("*[PDPI News]*\n\n*%s*\n\n%s\n\nBaca selengkapnya:\n%s",
+		berita.Title,
+		berita.Excerpt,
+		readMoreLink,
+	)
+
+	// 4. Determine Recipients
+	targetRecipients, err := ctrl.getWARecipients(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipients: " + err.Error()})
+		return
+	}
+
+	if len(targetRecipients) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No valid phone numbers found"})
+		return
+	}
+
+	// 5. Send WA via Background Goroutine with delay
+	go func(to []string, msg string) {
+		fmt.Printf("Starting WA broadcast for %d recipients...\n", len(to))
+		for i, number := range to {
+			if err := ctrl.WAService.SendMessage(number, msg); err != nil {
+				fmt.Printf("[%d/%d] Error sending WA to %s: %v\n", i+1, len(to), number, err)
+			}
+			// Jeda 500ms - 1s untuk menghindari blokir masal oleh WhatsApp
+			time.Sleep(800 * time.Millisecond)
+		}
+		fmt.Printf("WA broadcast completed for %d recipients.\n", len(to))
+	}(targetRecipients, message)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "WhatsApp broadcast process started in background",
+		"recipient_count": len(targetRecipients),
+		"target":          c.DefaultQuery("target", "test"),
+	})
+}
+
 func (ctrl *BroadcastController) BroadcastAgenda(c *gin.Context) {
 	id := c.Param("id")
 
@@ -215,6 +325,87 @@ func (ctrl *BroadcastController) BroadcastAgenda(c *gin.Context) {
 		"message":         "Broadcast process started in background",
 		"recipient_count": len(targetRecipients),
 		"mode":            c.Query("target"),
+	})
+}
+
+func (ctrl *BroadcastController) BroadcastAgendaWA(c *gin.Context) {
+	id := c.Param("id")
+
+	// 1. Fetch Agenda
+	var agenda struct {
+		ID          int    `json:"id"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Status      string `json:"status"`
+		Date        string `json:"date"`
+		Slug        string `json:"slug"`
+	}
+
+	query := "SELECT id, title, description, status, date, slug FROM agenda WHERE id = ?"
+	err := ctrl.DB.QueryRow(query, id).Scan(&agenda.ID, &agenda.Title, &agenda.Description, &agenda.Status, &agenda.Date, &agenda.Slug)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Agenda not found"})
+		return
+	}
+
+	// 2. Validate Status
+	if agenda.Status != "published" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only published agenda can be shared via WhatsApp"})
+		return
+	}
+
+	// 3. Prepare Message Content
+	baseURL := ctrl.Config.BaseURL
+	if len(baseURL) > 0 && baseURL[len(baseURL)-1] == '/' {
+		baseURL = baseURL[:len(baseURL)-1]
+	}
+
+	readMoreLink := fmt.Sprintf("%s/agenda/%s", baseURL, agenda.Slug)
+	message := fmt.Sprintf("*[PDPI Agenda]*\n\n*%s*\n\nTanggal: %s\n\nLihat detail agenda:\n%s",
+		agenda.Title,
+		agenda.Date,
+		readMoreLink,
+	)
+
+	// 4. Determine Recipients
+	targetRecipients, err := ctrl.getWARecipients(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recipients: " + err.Error()})
+		return
+	}
+
+	if len(targetRecipients) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No valid phone numbers found"})
+		return
+	}
+
+	// 5. Send WA via Background Goroutine with delay
+	go func(to []string, msg string) {
+		fmt.Printf("Starting WA (Agenda) broadcast for %d recipients...\n", len(to))
+		for i, number := range to {
+			if err := ctrl.WAService.SendMessage(number, msg); err != nil {
+				fmt.Printf("[%d/%d] Error sending WA (Agenda) to %s: %v\n", i+1, len(to), number, err)
+			}
+			time.Sleep(800 * time.Millisecond)
+		}
+		fmt.Printf("WA (Agenda) broadcast completed for %d recipients.\n", len(to))
+	}(targetRecipients, message)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "WhatsApp Agenda broadcast started in background",
+		"recipient_count": len(targetRecipients),
+		"target":          c.DefaultQuery("target", "test"),
+	})
+}
+
+func (ctrl *BroadcastController) TriggerBirthdayGreetings(c *gin.Context) {
+	if err := ctrl.BirthdayService.CheckAndSendGreetings(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Birthday greetings process triggered successfully",
 	})
 }
 

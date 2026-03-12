@@ -3,6 +3,9 @@ package bootstrap
 import (
 	"fmt"
 	"log"
+	"time"
+
+	services "github.com/cvudumbarainformatika/backend/app/Services"
 
 	exceptions "github.com/cvudumbarainformatika/backend/app/Exceptions"
 	middleware "github.com/cvudumbarainformatika/backend/app/Http/Middleware"
@@ -17,8 +20,9 @@ import (
 type Application struct {
 	Router *gin.Engine
 	DB     *database.Database
-	Redis  *redis.Client
-	Config *config.Config
+	Redis           *redis.Client
+	Config          *config.Config
+	BirthdayService *services.BirthdayService
 }
 
 // NewApplication creates and initializes a new application instance
@@ -86,15 +90,21 @@ func NewApplication() (*Application, error) {
 		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}
 
-	// Setup routes
-	routes.SetupRoutes(router, db.DB, rdb, cfg)
+	// Setup routes and get services that need scheduling
+	birthdayService := routes.SetupRoutes(router, db.DB, rdb, cfg)
 
-	return &Application{
-		Router: router,
-		DB:     db,
-		Redis:  rdb,
-		Config: cfg,
-	}, nil
+	app := &Application{
+		Router:          router,
+		DB:              db,
+		Redis:           rdb,
+		Config:          cfg,
+		BirthdayService: birthdayService,
+	}
+
+	// Start background scheduler
+	app.StartScheduler()
+
+	return app, nil
 }
 
 // Run starts the application server
@@ -102,6 +112,33 @@ func (app *Application) Run() error {
 	addr := fmt.Sprintf(":%s", app.Config.App.Port)
 	log.Printf("Starting %s on %s (env: %s)", app.Config.App.Name, addr, app.Config.App.Env)
 	return app.Router.Run(addr)
+}
+
+// StartScheduler initiates background tasks
+func (app *Application) StartScheduler() {
+	go func() {
+		log.Println("Background scheduler started")
+		
+		// Run every 1 hour to check if it's birthday time
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		// Initial check on startup
+		if err := app.BirthdayService.CheckAndSendGreetings(); err != nil {
+			log.Printf("Error during startup birthday check: %v", err)
+		}
+
+		for range ticker.C {
+			now := time.Now()
+			// Only run at 08:00 AM
+			if now.Hour() == 8 {
+				log.Println("Executing scheduled birthday greetings...")
+				if err := app.BirthdayService.CheckAndSendGreetings(); err != nil {
+					log.Printf("Error executing scheduled birthday greetings: %v", err)
+				}
+			}
+		}
+	}()
 }
 
 // Shutdown gracefully shuts down the application
