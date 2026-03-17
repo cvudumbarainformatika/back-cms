@@ -163,7 +163,7 @@ func (bc *BeritaController) GetList(c *gin.Context) {
 }
 
 // GetBySlug returns a single berita by slug
-// GET /api/v1/berita/:slug
+// GET /api/v1/berita/s/:slug
 func (bc *BeritaController) GetBySlug(c *gin.Context) {
 	slug := c.Param("slug")
 
@@ -180,6 +180,31 @@ func (bc *BeritaController) GetBySlug(c *gin.Context) {
 
 	// Increment views
 	_, _ = bc.db.Exec(`UPDATE berita SET views = views + 1 WHERE id = ?`, berita.ID)
+
+	utils.Success(c, http.StatusOK, "Berita retrieved successfully", formatBeritaResponse(*berita, true))
+}
+
+// GetByID returns a single berita by ID
+// GET /api/v1/berita/:id
+func (bc *BeritaController) GetByID(c *gin.Context) {
+	id := c.Param("id")
+
+	beritaID, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid_id", "Invalid berita ID", nil)
+		return
+	}
+
+	berita, err := models.FindBeritaByID(bc.db, beritaID)
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to fetch berita", nil)
+		return
+	}
+
+	if berita == nil {
+		utils.Error(c, http.StatusNotFound, "berita_not_found", "Berita not found", nil)
+		return
+	}
 
 	utils.Success(c, http.StatusOK, "Berita retrieved successfully", formatBeritaResponse(*berita, true))
 }

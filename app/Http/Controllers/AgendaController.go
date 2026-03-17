@@ -71,11 +71,36 @@ func (ac *AgendaController) GetList(c *gin.Context) {
 }
 
 // GetBySlug returns a single agenda by slug
-// GET /api/v1/agenda/:slug
+// GET /api/v1/agenda/s/:slug
 func (ac *AgendaController) GetBySlug(c *gin.Context) {
 	slug := c.Param("slug")
 
 	agenda, err := models.FindAgendaBySlug(ac.db, slug)
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to fetch agenda", nil)
+		return
+	}
+
+	if agenda == nil {
+		utils.Error(c, http.StatusNotFound, "agenda_not_found", "Agenda not found", nil)
+		return
+	}
+
+	utils.Success(c, http.StatusOK, "Agenda retrieved successfully", formatAgendaResponse(*agenda))
+}
+
+// GetByID returns a single agenda by ID
+// GET /api/v1/agenda/:id
+func (ac *AgendaController) GetByID(c *gin.Context) {
+	id := c.Param("id")
+
+	agendaID, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid_id", "Invalid agenda ID", nil)
+		return
+	}
+
+	agenda, err := models.FindAgendaByID(ac.db, agendaID)
 	if err != nil {
 		utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to fetch agenda", nil)
 		return

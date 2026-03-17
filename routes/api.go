@@ -76,7 +76,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 		{
 			berita.GET("", beritaController.GetList)
 			berita.GET("/categories", beritaController.GetCategories)
-			berita.GET("/:slug", beritaController.GetBySlug)
+			berita.GET("/s/:slug", beritaController.GetBySlug)
 		}
 
 		// ==============================
@@ -86,7 +86,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 		{
 			agenda.GET("", agendaController.GetList)
 			agenda.GET("/types", agendaController.GetTypes)
-			agenda.GET("/:slug", agendaController.GetBySlug)
+			agenda.GET("/s/:slug", agendaController.GetBySlug)
 		}
 
 		// ==============================
@@ -145,6 +145,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			// Berita Management routes (Admin only)
 			beritaAdmin := protected.Group("/berita")
 			{
+				beritaAdmin.GET("/:id", beritaController.GetByID)
 				beritaAdmin.POST("", beritaController.Create)
 				beritaAdmin.PUT("/:id", beritaController.Update)
 				beritaAdmin.PATCH("/:id", beritaController.Patch)
@@ -154,6 +155,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			// Agenda Management routes (Admin only)
 			agendaAdmin := protected.Group("/agenda")
 			{
+				agendaAdmin.GET("/:id", agendaController.GetByID)
 				agendaAdmin.POST("", agendaController.Create)
 				agendaAdmin.PUT("/:id", agendaController.Update)
 				agendaAdmin.PATCH("/:id", agendaController.Patch)
