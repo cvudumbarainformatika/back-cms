@@ -1,6 +1,9 @@
 # Development Dockerfile with hot reload
 FROM golang:1.23-alpine
 
+# Install dependencies
+RUN apk add --no-cache mysql-client
+
 # Install air for hot reload
 RUN go install github.com/cespare/reflex@latest
 

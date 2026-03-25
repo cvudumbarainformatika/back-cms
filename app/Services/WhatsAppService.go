@@ -25,8 +25,18 @@ func NewWhatsAppService(cfg config.ZuwindaConfig) *WhatsAppService {
 	}
 }
 
-// SendMessage sends a WhatsApp message using Zuwinda Cloud API
+// SendMessage sends a WhatsApp text message using Zuwinda Cloud API
 func (s *WhatsAppService) SendMessage(to, message string) error {
+	return s.send(to, "text", message, "")
+}
+
+// SendImageMessage sends a WhatsApp image message using Zuwinda Cloud API
+func (s *WhatsAppService) SendImageMessage(to, message, urlFile string) error {
+	return s.send(to, "image", message, urlFile)
+}
+
+// send is a generic helper to send different types of messages
+func (s *WhatsAppService) send(to, messageType, content, urlFile string) error {
 	// Zuwinda API Endpoint
 	url := fmt.Sprintf("%s/messaging/whatsapp/message", s.config.BaseURL)
 
@@ -34,8 +44,12 @@ func (s *WhatsAppService) SendMessage(to, message string) error {
 	payload := map[string]interface{}{
 		"accountId":   s.config.AccountID,
 		"to":          to,
-		"messageType": "text",
-		"content":     message,
+		"messageType": messageType,
+		"content":     content,
+	}
+
+	if messageType == "image" && urlFile != "" {
+		payload["url_file"] = urlFile
 	}
 
 	jsonData, err := json.Marshal(payload)

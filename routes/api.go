@@ -34,6 +34,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	memberController := controllers.NewMemberController(db)
 	dashboardController := controllers.NewDashboardController(db)
 	documentController := controllers.NewDocumentController(db, cfg)
+	greetingController := controllers.NewGreetingController(db, mailService, waService)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -160,6 +161,18 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				agendaAdmin.PUT("/:id", agendaController.Update)
 				agendaAdmin.PATCH("/:id", agendaController.Patch)
 				agendaAdmin.DELETE("/:id", agendaController.Delete)
+			}
+
+			// Greeting Management routes (Admin only)
+			greetingAdmin := protected.Group("/greetings")
+			{
+				greetingAdmin.GET("", greetingController.GetList)
+				greetingAdmin.GET("/:id", greetingController.GetByID)
+				greetingAdmin.POST("", greetingController.Create)
+				greetingAdmin.PUT("/:id", greetingController.Update)
+				greetingAdmin.DELETE("/:id", greetingController.Delete)
+				greetingAdmin.POST("/send-wa/:id", greetingController.SendWA)
+				greetingAdmin.POST("/send-email/:id", greetingController.SendEmail)
 			}
 
 			// Broadcast routes (Admin only)

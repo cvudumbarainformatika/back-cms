@@ -1,11 +1,18 @@
-#!/bin/bash
+#!/bin/sh
 
 # Database Migration Runner
-# This script runs all SQL migration files in order
+# This script runs all SQL migration files in order (POSIX sh compliant for Alpine)
 
-# Load environment variables from .env if it exists
+# Load environment variables if not already in environment
 if [ -f .env ]; then
-    export $(cat .env | grep -v '#' | xargs)
+    # Simple .env loader for sh
+    while read -r line || [ -n "$line" ]; do
+        case "$line" in
+            \#*) ;;
+            "") ;;
+            *) export "$line" ;;
+        esac
+    done < .env
 fi
 
 # Use defaults if env vars not set
@@ -15,80 +22,79 @@ DB_USERNAME=${DB_USERNAME:-root}
 DB_PASSWORD=${DB_PASSWORD:-secret}
 DB_DATABASE=${DB_DATABASE:-go_backend_db}
 
-# Colors for output
+# Colors for output (using printf)
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}========================================${NC}"
-echo -e "${YELLOW}Database Migration Runner${NC}"
-echo -e "${YELLOW}========================================${NC}"
-echo ""
-echo "Database: $DB_DATABASE"
-echo "Host: $DB_HOST:$DB_PORT"
-echo "User: $DB_USERNAME"
-echo ""
+printf "${YELLOW}========================================${NC}\n"
+printf "${YELLOW}Database Migration Runner (sh)${NC}\n"
+printf "${YELLOW}========================================${NC}\n\n"
+
+printf "Database: %s\n" "$DB_DATABASE"
+printf "Host: %s:%s\n" "$DB_HOST" "$DB_PORT"
+printf "User: %s\n\n" "$DB_USERNAME"
 
 # Check if password is set and build mysql command
 if [ -z "$DB_PASSWORD" ]; then
-    MYSQL_CMD="mysql -h $DB_HOST -P $DB_PORT -u $DB_USERNAME $DB_DATABASE"
+    MYSQL_CMD="mysql --skip-ssl -h $DB_HOST -P $DB_PORT -u $DB_USERNAME $DB_DATABASE"
 else
-    MYSQL_CMD="mysql -h $DB_HOST -P $DB_PORT -u $DB_USERNAME -p$DB_PASSWORD $DB_DATABASE"
+    MYSQL_CMD="mysql --skip-ssl -h $DB_HOST -P $DB_PORT -u $DB_USERNAME -p$DB_PASSWORD $DB_DATABASE"
+fi
+
+# Check if mysql command exists
+if ! command -v mysql > /dev/null 2>&1; then
+    printf "${RED}❌ Error: 'mysql' command not found!${NC}\n"
+    printf "Please install mysql-client in your environment.\n"
+    printf "Inside Docker Alpine, run: apk add mysql-client\n"
+    exit 1
 fi
 
 # Test connection
-echo -e "${YELLOW}Testing database connection...${NC}"
+printf "${YELLOW}Testing database connection...${NC}\n"
 if ! $MYSQL_CMD -e "SELECT 1;" > /dev/null 2>&1; then
-    echo -e "${RED}❌ Failed to connect to database!${NC}"
-    echo "Please check your database credentials in .env file"
+    printf "${RED}❌ Failed to connect to database!${NC}\n"
+    printf "Please check your database credentials in .env file\n"
     exit 1
 fi
-echo -e "${GREEN}✓ Database connection successful${NC}"
-echo ""
+printf "${GREEN}✓ Database connection successful${NC}\n\n"
 
 # Run migrations
 MIGRATION_DIR="database/migrations"
 
-echo -e "${YELLOW}Running migrations...${NC}"
-echo ""
+printf "${YELLOW}Running migrations...${NC}\n\n"
 
 FAILED=0
 # Find all .sql files, sort them, and loop
-for MIGRATION_FILE in $(ls $MIGRATION_DIR/*.sql | sort); do
+FILES=$(ls $MIGRATION_DIR/*.sql | sort)
+for MIGRATION_FILE in $FILES; do
     migration=$(basename "$MIGRATION_FILE")
     
     if [ ! -f "$MIGRATION_FILE" ]; then
-        echo -e "${RED}❌ Migration file not found: $MIGRATION_FILE${NC}"
-        FAILED=$((FAILED+1))
         continue
     fi
     
-    echo -n "Running: $migration ... "
+    printf "Running: %s ... " "$migration"
     
     if $MYSQL_CMD < "$MIGRATION_FILE" > /dev/null 2>&1; then
-        echo -e "${GREEN}✓${NC}"
+        printf "${GREEN}✓${NC}\n"
     else
-        echo -e "${RED}✗${NC}"
-        echo -e "${RED}   Error running migration: $migration${NC}"
-        FAILED=$((FAILED+1))
+        printf "${RED}✗${NC}\n"
+        printf "${RED}   Error running migration: %s${NC}\n" "$migration"
+        FAILED=$((FAILED + 1))
     fi
 done
 
-echo ""
-echo -e "${YELLOW}========================================${NC}"
+printf "\n${YELLOW}========================================${NC}\n"
 
 if [ $FAILED -eq 0 ]; then
-    echo -e "${GREEN}✓ All migrations completed successfully!${NC}"
-    echo ""
-    echo "Tables created:"
+    printf "${GREEN}✓ All migrations completed successfully!${NC}\n\n"
+    printf "Tables created:\n"
     $MYSQL_CMD -e "SHOW TABLES;" | tail -n +2 | sed 's/^/  - /'
-    echo ""
-    echo "You can now start the application with: go run main.go"
+    printf "\n"
     exit 0
 else
-    echo -e "${RED}✗ $FAILED migration(s) failed!${NC}"
-    echo ""
-    echo "Please check the errors above and try again."
+    printf "${RED}✗ %d migration(s) failed!${NC}\n\n" "$FAILED"
     exit 1
 fi
