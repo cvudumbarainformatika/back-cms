@@ -10,6 +10,7 @@ import (
 	requests "github.com/cvudumbarainformatika/backend/app/Http/Requests"
 	models "github.com/cvudumbarainformatika/backend/app/Models"
 	services "github.com/cvudumbarainformatika/backend/app/Services"
+	"github.com/cvudumbarainformatika/backend/config"
 	"github.com/cvudumbarainformatika/backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -17,17 +18,19 @@ import (
 
 // GreetingController handles greeting operations
 type GreetingController struct {
-	db   *sqlx.DB
-	mail *services.MailService
-	wa   *services.WhatsAppService
+	db     *sqlx.DB
+	mail   *services.MailService
+	wa     *services.WhatsAppService
+	config *config.Config
 }
 
 // NewGreetingController creates a new GreetingController instance
-func NewGreetingController(db *sqlx.DB, mail *services.MailService, wa *services.WhatsAppService) *GreetingController {
+func NewGreetingController(db *sqlx.DB, mail *services.MailService, wa *services.WhatsAppService, cfg *config.Config) *GreetingController {
 	return &GreetingController{
-		db:   db,
-		mail: mail,
-		wa:   wa,
+		db:     db,
+		mail:   mail,
+		wa:     wa,
+		config: cfg,
 	}
 }
 
@@ -174,6 +177,11 @@ func (gc *GreetingController) SendWA(c *gin.Context) {
 	
 	// Send in background
 	go func(to []string, msg, img string) {
+		// Use placeholder image if in local environment (Zuwinda needs public URL)
+		if gc.config.App.Env == "local" && img != "" {
+			img = "https://hobiternak.com/wp-content/uploads/2017/08/bebek-unggulan.jpg"
+		}
+
 		for _, number := range to {
 			if img != "" {
 				_ = gc.wa.SendImageMessage(number, msg, img)

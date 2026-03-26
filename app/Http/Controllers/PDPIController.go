@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/cvudumbarainformatika/backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
+	"github.com/xuri/excelize/v2"
 )
 
 // PDPIController handles PDPI API integration
@@ -670,5 +672,105 @@ func (pc *PDPIController) SearchPublicMembers(c *gin.Context) {
 			"total":       total,
 			"total_pages": totalPages,
 		},
+	})
+}
+
+// ImportExcel imports member data from uploaded Excel file
+// POST /api/v1/pdpi/import-excel
+func (pc *PDPIController) ImportExcel(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid_file", "Failed to get uploaded file", nil)
+		return
+	}
+
+	// Open the uploaded file
+	f, err := file.Open()
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "error", "Failed to open file", nil)
+		return
+	}
+	defer f.Close()
+
+	excel, err := excelize.OpenReader(f)
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "error", "Failed to parse excel", nil)
+		return
+	}
+	defer excel.Close()
+
+	sheets := excel.GetSheetList()
+	if len(sheets) == 0 {
+		utils.Error(c, http.StatusBadRequest, "error", "No sheets found in excel", nil)
+		return
+	}
+
+	rows, err := excel.GetRows(sheets[0])
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "error", "Failed to read rows", nil)
+		return
+	}
+
+	if len(rows) < 2 {
+		utils.Error(c, http.StatusBadRequest, "error", "Excel file is empty", nil)
+		return
+	}
+
+	// Stats
+	var updated, created, failed int
+	
+	// Column mapping based on inspection:
+	// 0: NPA, 1: display_name, 2: user_email, 3: pdpi_cabang, 4: no WA
+	
+	for i, row := range rows {
+		if i == 0 { // Skip header
+			continue
+		}
+		
+		if len(row) < 1 || row[0] == "" { // Skip empty NPA
+			continue
+		}
+
+		npa := row[0]
+		
+		// Map data
+		member := &models.PDPIMember{
+			NPA: npa,
+		}
+		
+		if len(row) > 1 { member.Nama = row[1] }
+		if len(row) > 2 && row[2] != "" { member.Email = utils.StringToPtr(row[2]) }
+		if len(row) > 3 && row[3] != "" { member.Cabang = utils.StringToPtr(row[3]) }
+		if len(row) > 4 && row[4] != "" { 
+			noHP := row[4]
+			member.NoHP = utils.StringToPtr(utils.NormalizePhoneNumber(noHP)) 
+		}
+		
+		// Set status to Aktif by default for imports
+		activeStatus := "Aktif"
+		member.Status = &activeStatus
+		member.SyncedAt = utils.TimeToPtr(time.Now())
+
+		// Check if exists to determine if it's update or create
+		existing, _ := models.FindPDPIMemberByNPA(pc.db, npa)
+		if existing != nil {
+			member.ID = existing.ID
+			updated++
+		} else {
+			created++
+		}
+
+		err := models.UpsertByNPA(pc.db, member)
+		if err != nil {
+			failed++
+			log.Printf("Failed to upsert member %s: %v", npa, err)
+		}
+	}
+
+	utils.Success(c, http.StatusOK, "Import completed", gin.H{
+		"updated": updated,
+		"created": created,
+		"failed":  failed,
+		"rows_processed": len(rows) - 1,
 	})
 }

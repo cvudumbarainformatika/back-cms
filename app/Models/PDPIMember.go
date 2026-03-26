@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -186,6 +187,57 @@ func UpsertPDPIMember(db *sqlx.DB, member *PDPIMember) error {
 			synced_at = VALUES(synced_at),
 			updated_at = CURRENT_TIMESTAMP
 	`
+
+	_, err := db.NamedExec(query, member)
+	return err
+}
+
+// UpsertByNPA inserts or updates a PDPI member in local database based on NPA.
+// It generates a UUID if member.ID is empty.
+func UpsertByNPA(db *sqlx.DB, member *PDPIMember) error {
+	// Generate UUID if not present
+	if member.ID == "" {
+		member.ID = uuid.New().String()
+	}
+
+	query := `
+		INSERT INTO pdpi_members (
+			id, npa, npa_numeric, nama, foto, gelar, gelar2, email, no_hp, nik, 
+			jenis_kelamin, tempat_lahir, tgl_lahir, alamat_rumah,
+			cabang, provinsi, kota_kabupaten, kota_kabupaten_kantor, provinsi_kantor, status, alumni, thn_lulus,
+			tempat_tugas, 
+			tempat_praktek_1, tempat_praktek_1_tipe, tempat_praktek_1_tipe_2, tempat_praktek_1_alkes, tempat_praktek_1_alkes_2,
+			tempat_praktek_2, tempat_praktek_2_tipe, tempat_praktek_2_tipe_2, tempat_praktek_2_alkes, tempat_praktek_2_alkes_2,
+			kota_kabupaten_praktek_2, provinsi_praktek_2,
+			tempat_praktek_3, tempat_praktek_3_tipe, tempat_praktek_3_tipe_2, tempat_praktek_3_alkes, tempat_praktek_3_alkes_2,
+			kota_kabupaten_praktek_3, provinsi_praktek_3,
+			subspesialis, gelar_fisr,
+			no_str, str_berlaku_sampai, no_sip, sip_berlaku_sampai,
+			user_id, synced_at
+		) VALUES (
+			:id, :npa, :npa_numeric, :nama, :foto, :gelar, :gelar2, :email, :no_hp, :nik,
+			:jenis_kelamin, :tempat_lahir, :tgl_lahir, :alamat_rumah,
+			:cabang, :provinsi, :kota_kabupaten, :kota_kabupaten_kantor, :provinsi_kantor, :status, :alumni, :thn_lulus,
+			:tempat_tugas, 
+			:tempat_praktek_1, :tempat_praktek_1_tipe, :tempat_praktek_1_tipe_2, :tempat_praktek_1_alkes, :tempat_praktek_1_alkes_2,
+			:tempat_praktek_2, :tempat_praktek_2_tipe, :tempat_praktek_2_tipe_2, :tempat_praktek_2_alkes, :tempat_praktek_2_alkes_2,
+			:kota_kabupaten_praktek_2, :provinsi_praktek_2,
+			:tempat_praktek_3, :tempat_praktek_3_tipe, :tempat_praktek_3_tipe_2, :tempat_praktek_3_alkes, :tempat_praktek_3_alkes_2,
+			:kota_kabupaten_praktek_3, :provinsi_praktek_3,
+			:subspesialis, :gelar_fisr,
+			:no_str, :str_berlaku_sampai, :no_sip, :sip_berlaku_sampai,
+			:user_id, :synced_at
+		)
+		ON DUPLICATE KEY UPDATE
+			nama = VALUES(nama),
+			email = VALUES(email),
+			no_hp = VALUES(no_hp),
+			cabang = VALUES(cabang),
+			updated_at = CURRENT_TIMESTAMP
+	`
+	// Note: We only update some fields in DUPLICATE KEY for simplicity if needed, 
+	// or we can update everything. The user specifically asked to "update data based on excel".
+	// Since Excel only has 5 fields, we should probably only update those 5 fields.
 
 	_, err := db.NamedExec(query, member)
 	return err

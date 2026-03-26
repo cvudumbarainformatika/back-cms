@@ -53,7 +53,17 @@ func NormalizePhoneNumber(phone string) string {
 		return "62" + cleaned
 	}
 
-	// 4. If it starts with '62', keep it (e.g., 62812...)
+	// 4. Handle leading '620' (mistake: 62 + 0812...) -> replace with '62'
+	if strings.HasPrefix(cleaned, "620") {
+		return "62" + cleaned[3:]
+	}
+
+	// 5. If it starts with '628', keep it (correct international format)
+	if strings.HasPrefix(cleaned, "628") {
+		return cleaned
+	}
+
+	// 6. If it starts with '62', keep it (generic international)
 	if strings.HasPrefix(cleaned, "62") {
 		return cleaned
 	}

@@ -34,7 +34,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	memberController := controllers.NewMemberController(db)
 	dashboardController := controllers.NewDashboardController(db)
 	documentController := controllers.NewDocumentController(db, cfg)
-	greetingController := controllers.NewGreetingController(db, mailService, waService)
+	greetingController := controllers.NewGreetingController(db, mailService, waService, cfg)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -220,6 +220,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			{
 				pdpi.POST("/sync-member", pdpiController.SyncMember)
 				pdpi.POST("/sync-all-members", pdpiController.SyncAllMembers) // New: Sync all PDPI members
+				pdpi.POST("/import-excel", pdpiController.ImportExcel)
 				pdpi.GET("/members", pdpiController.GetMembers)
 				pdpi.GET("/member/:npa", pdpiController.GetMemberByNPA)
 				pdpi.GET("/me", pdpiController.GetMyMemberData)
