@@ -183,10 +183,13 @@ func (gc *GreetingController) SendWA(c *gin.Context) {
 		}
 
 		for _, number := range to {
+			var err error
 			if img != "" {
-				_ = gc.wa.SendImageMessage(number, msg, img)
+				err = gc.wa.SendImageMessage(number, msg, img)
+				log.Printf("[WA] Sending image to %s: err=%v", number, err)
 			} else {
-				_ = gc.wa.SendMessage(number, msg)
+				err = gc.wa.SendMessage(number, msg)
+				log.Printf("[WA] Sending text to %s: err=%v", number, err)
 			}
 			// Small delay to avoid rate limiting
 			time.Sleep(800 * time.Millisecond)
