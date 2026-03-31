@@ -55,7 +55,7 @@ func (pc *PDPIController) mapSupabaseToLocal(pdpiMember services.SupabaseMember)
 		localMember.Email = pdpiMember.Email
 	}
 	if pdpiMember.NoHP != nil {
-		localMember.NoHP = pdpiMember.NoHP
+		localMember.NoHP = utils.StringToPtr(utils.NormalizePhoneNumber(*pdpiMember.NoHP))
 	}
 	if pdpiMember.NIK != nil {
 		localMember.NIK = pdpiMember.NIK

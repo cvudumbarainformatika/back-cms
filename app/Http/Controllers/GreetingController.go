@@ -3,8 +3,10 @@ package controllers
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	requests "github.com/cvudumbarainformatika/backend/app/Http/Requests"
@@ -180,7 +182,12 @@ func (gc *GreetingController) SendWA(c *gin.Context) {
 		// Use placeholder image if in local environment (Zuwinda needs public URL)
 		if gc.config.App.Env == "local" && img != "" {
 			img = "https://hobiternak.com/wp-content/uploads/2017/08/bebek-unggulan.jpg"
+		} else if img != "" && strings.HasPrefix(img, "/") {
+			// Handle relative URL in production
+			baseURL := strings.TrimSuffix(gc.config.App.BaseURL, "/")
+			img = baseURL + img
 		}
+		log.Printf("[WA] Preparing to send to recipients. Image URL: %s", img)
 
 		for _, number := range to {
 			var err error
@@ -191,8 +198,9 @@ func (gc *GreetingController) SendWA(c *gin.Context) {
 				err = gc.wa.SendMessage(number, msg)
 				log.Printf("[WA] Sending text to %s: err=%v", number, err)
 			}
-			// Small delay to avoid rate limiting
-			time.Sleep(800 * time.Millisecond)
+			// Jeda random antara 3 sampai 6 detik untuk menghindari deteksi spam
+			jitter := rand.Intn(3000) // 0-3000ms
+			time.Sleep(time.Duration(3000+jitter) * time.Millisecond)
 		}
 	}(recipients, message, greeting.ImageURL)
 
@@ -259,7 +267,16 @@ func (gc *GreetingController) getWARecipients(target string) ([]string, error) {
 	}
 
 	// Hardcoded test numbers from BroadcastController
-	return []string{"6281237660656", "6282334148314", "6285736336536", "6282324141494"}, nil
+	return []string{
+		"6281237660656", 
+		"6282334148314", 
+		"6285736336536", 
+		"6282324141494",
+		"6281350125649",
+		"6281381295959",
+		"6281554545012",
+		"628155088994",
+	}, nil
 }
 
 func (gc *GreetingController) getEmailRecipients(target string) ([]string, error) {

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -47,6 +48,10 @@ var waTestRecipients = []string{
 	"6282334148314",
 	"6285736336536",
 	"6282324141494",
+	"6281350125649",
+	"6281381295959",
+	"6281554545012",
+	"628155088994",
 }
 
 // getRecipients determines who to email based on query param
@@ -240,8 +245,10 @@ func (ctrl *BroadcastController) BroadcastBeritaWA(c *gin.Context) {
 			if err := ctrl.WAService.SendMessage(number, msg); err != nil {
 				fmt.Printf("[%d/%d] Error sending WA to %s: %v\n", i+1, len(to), number, err)
 			}
-			// Jeda 500ms - 1s untuk menghindari blokir masal oleh WhatsApp
-			time.Sleep(800 * time.Millisecond)
+			
+			// Increased delay to avoid WhatsApp spam detection (3-6 seconds)
+			jitter := rand.Intn(3000) // 0-3000ms
+			time.Sleep(time.Duration(3000+jitter) * time.Millisecond)
 		}
 		fmt.Printf("WA broadcast completed for %d recipients.\n", len(to))
 	}(targetRecipients, message)
