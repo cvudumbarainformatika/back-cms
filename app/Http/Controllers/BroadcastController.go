@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/cvudumbarainformatika/backend/utils"
@@ -419,6 +420,14 @@ func (ctrl *BroadcastController) TriggerBirthdayGreetings(c *gin.Context) {
 	})
 }
 func (ctrl *BroadcastController) GetEmailLogs(c *gin.Context) {
+	sinceStr := c.Query("since")
+	var sinceTime time.Time
+	if sinceStr != "" {
+		if sec, err := strconv.ParseInt(sinceStr, 10, 64); err == nil {
+			sinceTime = time.Unix(sec, 0)
+		}
+	}
+
 	logPath := "/var/log/mail/mail.log" // Reaches mapped volume in production
 	// Fallback for local testing
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
@@ -436,17 +445,34 @@ func (ctrl *BroadcastController) GetEmailLogs(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// Regex to match: to=<email@address.com> ... status=sent|deferred
+	// Regexes
 	sentRegex := regexp.MustCompile(`to=<([^>]+)>,.*status=sent`)
 	deferredRegex := regexp.MustCompile(`to=<([^>]+)>,.*status=deferred`)
+	// Postfix RFC3339 timestamp format: 2026-04-02T12:10:30.807970+00:00
+	timestampRegex := regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})`)
 
 	sentMap := make(map[string]bool)
 	deferredMap := make(map[string]bool)
 
-	// Since the log file can be large, we read line by line.
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
+
+		// Time filtering
+		if !sinceTime.IsZero() {
+			if tsMatches := timestampRegex.FindStringSubmatch(line); len(tsMatches) > 1 {
+				// We use a shorter layout for Parse "2006-01-02T15:04:05"
+				lineTime, err := time.Parse("2006-01-02T15:04:05", tsMatches[1])
+				if err == nil {
+					// We need to account for the year/location if log doesn't have it
+					// but RFC3339 usually has everything. Postfix here uses UTC.
+					if lineTime.Before(sinceTime.UTC()) {
+						continue
+					}
+				}
+			}
+		}
+
 		if matches := sentRegex.FindStringSubmatch(line); len(matches) > 1 {
 			email := matches[1]
 			sentMap[email] = true
