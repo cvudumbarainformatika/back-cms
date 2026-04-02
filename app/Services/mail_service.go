@@ -37,12 +37,7 @@ func (s *MailService) SendEmail(to []string, subject string, body string) error 
 	dialerUser := s.Config.User
 	dialerPass := s.Config.Password
 
-	// If using Port 25 (Internal Relay), disable Auth to avoid STARTTLS requirement
-	if s.Config.Port == 25 {
-		dialerUser = ""
-		dialerPass = ""
-	}
-
+	// Create new dialer
 	d := gomail.NewDialer(s.Config.Host, s.Config.Port, dialerUser, dialerPass)
 
 	// Bypass certificate verification for self-hosted mailserver (Docker internal network)

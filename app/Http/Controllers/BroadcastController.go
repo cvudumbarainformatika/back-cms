@@ -1,9 +1,12 @@
 package controllers
 
 import (
+	"bufio"
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
+	"regexp"
 	"time"
 
 	"github.com/cvudumbarainformatika/backend/utils"
@@ -413,6 +416,62 @@ func (ctrl *BroadcastController) TriggerBirthdayGreetings(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Birthday greetings process triggered successfully",
+	})
+}
+func (ctrl *BroadcastController) GetEmailLogs(c *gin.Context) {
+	logPath := "/var/log/mail/mail.log" // Reaches mapped volume in production
+	// Fallback for local testing
+	if _, err := os.Stat(logPath); os.IsNotExist(err) {
+		logPath = "logs/mail.log"
+	}
+
+	file, err := os.Open(logPath)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success":  []string{},
+			"deferred": []string{},
+			"message":  "Log file not found or inaccessible",
+		})
+		return
+	}
+	defer file.Close()
+
+	// Regex to match: to=<email@address.com> ... status=sent|deferred
+	sentRegex := regexp.MustCompile(`to=<([^>]+)>,.*status=sent`)
+	deferredRegex := regexp.MustCompile(`to=<([^>]+)>,.*status=deferred`)
+
+	sentMap := make(map[string]bool)
+	deferredMap := make(map[string]bool)
+
+	// Since the log file can be large, we read line by line.
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if matches := sentRegex.FindStringSubmatch(line); len(matches) > 1 {
+			email := matches[1]
+			sentMap[email] = true
+			delete(deferredMap, email)
+		} else if matches := deferredRegex.FindStringSubmatch(line); len(matches) > 1 {
+			email := matches[1]
+			if !sentMap[email] {
+				deferredMap[email] = true
+			}
+		}
+	}
+
+	sentEmails := make([]string, 0, len(sentMap))
+	for email := range sentMap {
+		sentEmails = append(sentEmails, email)
+	}
+
+	deferredEmails := make([]string, 0, len(deferredMap))
+	for email := range deferredMap {
+		deferredEmails = append(deferredEmails, email)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":  sentEmails,
+		"deferred": deferredEmails,
 	})
 }
 

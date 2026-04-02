@@ -52,6 +52,7 @@ services:
       - ./docker-data/dms/mail-state/:/var/mail-state/
       - ./docker-data/dms/mail-logs/:/var/log/mail/
       - ./docker-data/dms/config/:/tmp/docker-mailserver/
+      - /etc/letsencrypt/:/etc/letsencrypt/:ro
       - /etc/localtime:/etc/localtime:ro
     environment:
       - ENABLE_SPAMASSASSIN=1
@@ -62,6 +63,11 @@ services:
       - DMS_DEBUG=0
       - PERMIT_DOCKER=connected-networks
       - POSTFIX_INET_PROTOCOLS=ipv4
+      - POSTFIX_SMTP_TLS_SECURITY_LEVEL=may
+      - SSL_TYPE=manual
+      - SSL_CERT_PATH=/etc/letsencrypt/live/mail.klikpdpi.com/fullchain.pem
+      - SSL_KEY_PATH=/etc/letsencrypt/live/mail.klikpdpi.com/privkey.pem
+      - SPOOF_PROTECTION=0
     cap_add:
       - NET_ADMIN # Required for Fail2Ban
     networks:
@@ -94,6 +100,8 @@ services:
     volumes:
       # Storage volumes for different file types - persistent across container rebuilds
       - /opt/apps/backend/storage:/app/storage
+      # Mount mailserver logs for monitoring dashboard
+      - ./docker-data/dms/mail-logs/:/var/log/mail/:ro
     depends_on:
       mysql:
         condition: service_healthy
