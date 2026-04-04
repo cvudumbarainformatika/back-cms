@@ -184,6 +184,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				broadcastAdmin.POST("/agenda-wa/:id", broadcastController.BroadcastAgendaWA)
 				broadcastAdmin.POST("/birthday-check", broadcastController.TriggerBirthdayGreetings)
 				broadcastAdmin.GET("/email-logs", broadcastController.GetEmailLogs)
+				broadcastAdmin.GET("/whatsapp-logs", broadcastController.GetWhatsAppLogs)
 			}
 
 			// Menu Management routes (Admin only)

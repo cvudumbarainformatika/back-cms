@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"math/rand"
 	"time"
 
 	"github.com/cvudumbarainformatika/backend/config"
@@ -48,36 +49,46 @@ func (s *MailService) SendEmail(to []string, subject string, body string) error 
 		d.SSL = true
 	}
 
-	// Batch recipients to avoid SMTP "too many recipients" error (452 4.5.3)
-	// Common limits are 100-500, but 50 is a very safe baseline.
-	batchSize := 50
-	for i := 0; i < len(to); i += batchSize {
-		end := i + batchSize
-		if end > len(to) {
-			end = len(to)
-		}
-		batch := to[i:end]
+	// Updated Anti-Spam logic: Send individually with random delays and batch sleep
+	total := len(to)
+	batchSize := 40
 
+	for i, recipient := range to {
+		msgNum := i + 1
 		m := gomail.NewMessage()
-		// Set sender with display name
 		m.SetHeader("From", fmt.Sprintf("Admin PDPI <%s>", from))
-		// Use BCC for privacy - recipients won't see each other's emails
-		m.SetHeader("To", from)      // Set To to sender (admin)
-		m.SetHeader("Bcc", batch...) // This batch of recipients in BCC (hidden)
+		m.SetHeader("To", recipient)
 		m.SetHeader("Subject", subject)
 		m.SetBody("text/html", body)
 
-		log.Printf("[MAIL] Sending batch %d/%d (%d recipients)", (i/batchSize)+1, (len(to)+batchSize-1)/batchSize, len(batch))
+		log.Printf("[MAIL] [%d/%d] Sending to: %s", msgNum, total, recipient)
 
 		if err := d.DialAndSend(m); err != nil {
-			return fmt.Errorf("failed to send email batch starting at index %d: %v", i, err)
+			log.Printf("[MAIL ERROR] Failed to send to %s: %v", recipient, err)
+			// Continue to next recipient despite error
 		}
 
-		// Small delay between batches to avoid server throttling/rate limiting
-		if end < len(to) {
-			time.Sleep(800 * time.Millisecond)
+		// 1. Random delay 3-6 seconds after EVERY message
+		if msgNum < total {
+			delay := 3 + rand.Intn(4) // 3, 4, 5, or 6 seconds
+			
+			// 2. Batch system: After 40 messages, sleep 3-6 minutes
+			if msgNum % batchSize == 0 {
+				sleepMinutes := 3 + rand.Intn(4) // 3, 4, 5, or 6 minutes
+				totalBatches := (total + batchSize - 1) / batchSize
+				currentBatch := msgNum / batchSize
+				
+				log.Printf("[MAIL] Batch %d/%d selesai, istirahat %d menit dulu untuh cegah spam...", 
+					currentBatch, totalBatches, sleepMinutes)
+				
+				time.Sleep(time.Duration(sleepMinutes) * time.Minute)
+			} else {
+				// Regular message delay
+				time.Sleep(time.Duration(delay) * time.Second)
+			}
 		}
 	}
 
+	log.Printf("[MAIL] Broadcast selesai dikirim ke %d penerima.", total)
 	return nil
 }

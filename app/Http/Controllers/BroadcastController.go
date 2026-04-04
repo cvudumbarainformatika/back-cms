@@ -244,17 +244,37 @@ func (ctrl *BroadcastController) BroadcastBeritaWA(c *gin.Context) {
 
 	// 5. Send WA via Background Goroutine with delay
 	go func(to []string, msg string) {
-		fmt.Printf("Starting WA broadcast for %d recipients...\n", len(to))
+		fmt.Printf("[WA] Starting broadcast for %d recipients...\n", len(to))
 		for i, number := range to {
+			msgNum := i + 1
 			if err := ctrl.WAService.SendMessage(number, msg); err != nil {
-				fmt.Printf("[%d/%d] Error sending WA to %s: %v\n", i+1, len(to), number, err)
+				fmt.Printf("[WA ERROR] [%d/%d] to %s: %v\n", msgNum, len(to), number, err)
+				ctrl.WAService.LogEvent(number, "failed")
+			} else {
+				fmt.Printf("[WA] [%d/%d] Sent to %s\n", msgNum, len(to), number)
+				ctrl.WAService.LogEvent(number, "sent")
 			}
 			
-			// Increased delay to avoid WhatsApp spam detection (3-6 seconds)
-			jitter := rand.Intn(3000) // 0-3000ms
-			time.Sleep(time.Duration(3000+jitter) * time.Millisecond)
+			// 1. Random delay 3-6 seconds after EVERY message
+			if msgNum < len(to) {
+				delay := 3 + rand.Intn(4) // 3, 4, 5, or 6 seconds
+				
+				// 2. Batch system: After 40 messages, sleep 3-6 minutes
+				if msgNum % 40 == 0 {
+					sleepMinutes := 3 + rand.Intn(4)
+					totalBatches := (len(to) + 39) / 40
+					currentBatch := msgNum / 40
+					
+					fmt.Printf("[WA] Batch %d/%d selesai, menunggu %d menit...\n", 
+						currentBatch, totalBatches, sleepMinutes)
+					
+					time.Sleep(time.Duration(sleepMinutes) * time.Minute)
+				} else {
+					time.Sleep(time.Duration(delay) * time.Second)
+				}
+			}
 		}
-		fmt.Printf("WA broadcast completed for %d recipients.\n", len(to))
+		fmt.Printf("[WA] Broadcast completed for %d recipients.\n", len(to))
 	}(targetRecipients, message)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -392,14 +412,33 @@ func (ctrl *BroadcastController) BroadcastAgendaWA(c *gin.Context) {
 
 	// 5. Send WA via Background Goroutine with delay
 	go func(to []string, msg string) {
-		fmt.Printf("Starting WA (Agenda) broadcast for %d recipients...\n", len(to))
+		fmt.Printf("[WA-AGENDA] Starting broadcast for %d recipients...\n", len(to))
 		for i, number := range to {
+			msgNum := i + 1
 			if err := ctrl.WAService.SendMessage(number, msg); err != nil {
-				fmt.Printf("[%d/%d] Error sending WA (Agenda) to %s: %v\n", i+1, len(to), number, err)
+				fmt.Printf("[WA-AGENDA ERROR] [%d/%d] to %s: %v\n", msgNum, len(to), number, err)
+				ctrl.WAService.LogEvent(number, "failed")
+			} else {
+				fmt.Printf("[WA-AGENDA] [%d/%d] Sent to %s\n", msgNum, len(to), number)
+				ctrl.WAService.LogEvent(number, "sent")
 			}
-			time.Sleep(800 * time.Millisecond)
+
+			// 1. Random delay 3-6 seconds
+			if msgNum < len(to) {
+				delay := 3 + rand.Intn(4)
+
+				// 2. Batch system: 40 messages -> 3-6 minutes sleep
+				if msgNum % 40 == 0 {
+					sleepMinutes := 3 + rand.Intn(4)
+					fmt.Printf("[WA-AGENDA] Batch %d/%d selesai, menunggu %d menit...\n", 
+						msgNum/40, (len(to)+39)/40, sleepMinutes)
+					time.Sleep(time.Duration(sleepMinutes) * time.Minute)
+				} else {
+					time.Sleep(time.Duration(delay) * time.Second)
+				}
+			}
 		}
-		fmt.Printf("WA (Agenda) broadcast completed for %d recipients.\n", len(to))
+		fmt.Printf("[WA-AGENDA] Broadcast completed for %d recipients.\n", len(to))
 	}(targetRecipients, message)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -498,6 +537,85 @@ func (ctrl *BroadcastController) GetEmailLogs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success":  sentEmails,
 		"deferred": deferredEmails,
+	})
+}
+func (ctrl *BroadcastController) GetWhatsAppLogs(c *gin.Context) {
+	sinceStr := c.Query("since")
+	var sinceTime time.Time
+	if sinceStr != "" {
+		if sec, err := strconv.ParseInt(sinceStr, 10, 64); err == nil {
+			sinceTime = time.Unix(sec, 0)
+		}
+	}
+
+	logPath := "logs/whatsapp.log"
+	file, err := os.Open(logPath)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": []string{},
+			"failed":  []string{},
+			"message": "WA Log file not found",
+		})
+		return
+	}
+	defer file.Close()
+
+	// Regex for WhatsApp log: 2026-04-04T12:10:30+00:00 status=sent to=62812...
+	// RFC3339 timestamp regex
+	timestampRegex := regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})`)
+	statusRegex := regexp.MustCompile(`status=(\w+)`)
+	toRegex := regexp.MustCompile(`to=([^\s]+)`)
+
+	sentList := make(map[string]bool)
+	failedList := make(map[string]bool)
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Time filter
+		if !sinceTime.IsZero() {
+			if tsMatches := timestampRegex.FindStringSubmatch(line); len(tsMatches) > 1 {
+				lineTime, err := time.Parse("2006-01-02T15:04:05", tsMatches[1])
+				if err == nil {
+					if lineTime.Before(sinceTime.UTC()) {
+						continue
+					}
+				}
+			}
+		}
+
+		statusMatches := statusRegex.FindStringSubmatch(line)
+		toMatches := toRegex.FindStringSubmatch(line)
+
+		if len(statusMatches) > 1 && len(toMatches) > 1 {
+			status := statusMatches[1]
+			to := toMatches[1]
+
+			if status == "sent" {
+				sentList[to] = true
+				delete(failedList, to)
+			} else {
+				if !sentList[to] {
+					failedList[to] = true
+				}
+			}
+		}
+	}
+
+	success := make([]string, 0, len(sentList))
+	for to := range sentList {
+		success = append(success, to)
+	}
+
+	failed := make([]string, 0, len(failedList))
+	for to := range failedList {
+		failed = append(failed, to)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": success,
+		"failed":  failed,
 	})
 }
 

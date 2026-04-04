@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/cvudumbarainformatika/backend/utils"
@@ -48,40 +49,64 @@ func (s *BirthdayService) CheckAndSendGreetings() error {
 	}
 
 	if len(members) == 0 {
-		fmt.Println("No members having birthday today.")
+		fmt.Println("[BIRTHDAY] No members having birthday today.")
 		return nil
 	}
 
-	fmt.Printf("Found %d members having birthday today.\n", len(members))
+	fmt.Printf("[BIRTHDAY] Found %d members having birthday today. Starting sequential broadcast...\n", len(members))
 
-	for _, m := range members {
-		// 1. Send Email
-		if m.Email != nil && *m.Email != "" {
-			subject := fmt.Sprintf("Selamat Ulang Tahun, %s! 🎂", m.Nama)
-			body := s.getBirthdayEmailTemplate(m.Nama)
-			go func(to string, subj, content string) {
-				if err := s.MailService.SendEmail([]string{to}, subj, content); err != nil {
-					fmt.Printf("Error sending birthday email to %s: %v\n", to, err)
+	// Run the broadcast in a single background goroutine
+	go func(targets []struct {
+		Nama  string  `db:"nama"`
+		Email *string `db:"email"`
+		NoHP  *string `db:"no_hp"`
+	}) {
+		total := len(targets)
+		for i, m := range targets {
+			msgNum := i + 1
+			
+			// 1. Send Email
+			if m.Email != nil && *m.Email != "" {
+				subject := fmt.Sprintf("Selamat Ulang Tahun, %s! 🎂", m.Nama)
+				body := s.getBirthdayEmailTemplate(m.Nama)
+				fmt.Printf("[BIRTHDAY-EMAIL] [%d/%d] Sending to %s...\n", msgNum, total, *m.Email)
+				if err := s.MailService.SendEmail([]string{*m.Email}, subject, body); err != nil {
+					fmt.Printf("[BIRTHDAY-EMAIL ERROR] to %s: %v\n", *m.Email, err)
 				}
-			}(*m.Email, subject, body)
-		}
+			}
 
-		// 2. Send WhatsApp
-		if m.NoHP != nil && *m.NoHP != "" {
-			normalized := utils.NormalizePhoneNumber(*m.NoHP)
-			if normalized != "" {
-				message := fmt.Sprintf("Halo %s 👋,\n\nKami segenap keluarga besar *PDPI (Perhimpunan Dokter Paru Indonesia)* mengucapkan:\n\n✨ *Selamat Ulang Tahun!* ✨\n\nSemoga panjang umur, sehat selalu, dan sukses dalam menjalankan tugas mulia bagi bangsa dan sesama.\n\nSalam Hangat,\n*PDPI Pusat*", m.Nama)
-				
-				go func(to, msg string) {
-					// Add slight delay between WA messages if there are many
-					time.Sleep(1 * time.Second)
-					if err := s.WAService.SendMessage(to, msg); err != nil {
-						fmt.Printf("Error sending birthday WA to %s: %v\n", m.Nama, err)
+			// 2. Send WhatsApp
+			if m.NoHP != nil && *m.NoHP != "" {
+				normalized := utils.NormalizePhoneNumber(*m.NoHP)
+				if normalized != "" {
+					message := fmt.Sprintf("Halo %s 👋,\n\nKami segenap keluarga besar *PDPI (Perhimpunan Dokter Paru Indonesia)* mengucapkan:\n\n✨ *Selamat Ulang Tahun!* ✨\n\nSemoga panjang umur, sehat selalu, dan sukses dalam menjalankan tugas mulia bagi bangsa dan sesama.\n\nSalam Hangat,\n*PDPI Pusat*", m.Nama)
+					
+					fmt.Printf("[BIRTHDAY-WA] [%d/%d] Sending to %s...\n", msgNum, total, normalized)
+					if err := s.WAService.SendMessage(normalized, message); err != nil {
+						fmt.Printf("[BIRTHDAY-WA ERROR] to %s: %v\n", m.Nama, err)
+						s.WAService.LogEvent(normalized, "failed")
+					} else {
+						s.WAService.LogEvent(normalized, "sent")
 					}
-				}(normalized, message)
+				}
+			}
+
+			// 3. Anti-Spam Delays
+			if msgNum < total {
+				delay := 3 + rand.Intn(4) // 3-6 seconds
+				
+				if msgNum % 40 == 0 {
+					sleepMinutes := 3 + rand.Intn(4) // 3-6 minutes
+					fmt.Printf("[BIRTHDAY] Batch %d selesai, istirahat %d menit untuk anti-spam...\n", 
+						msgNum/40, sleepMinutes)
+					time.Sleep(time.Duration(sleepMinutes) * time.Minute)
+				} else {
+					time.Sleep(time.Duration(delay) * time.Second)
+				}
 			}
 		}
-	}
+		fmt.Printf("[BIRTHDAY] Completed sending greetings to %d members.\n", total)
+	}(members)
 
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/cvudumbarainformatika/backend/config"
@@ -22,6 +23,29 @@ func NewWhatsAppService(cfg config.ZuwindaConfig) *WhatsAppService {
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+	}
+}
+
+// LogEvent records a WhatsApp sending attempt to logs/whatsapp.log
+func (s *WhatsAppService) LogEvent(to, status string) {
+	logPath := "logs/whatsapp.log"
+	
+	// Ensure directory exists (basic check)
+	_ = os.MkdirAll("logs", 0755)
+
+	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Printf("[WA-LOG-ERROR] Failed to open log file: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	// Format: 2026-04-04T12:10:30+00:00 status=sent to=62812...
+	timestamp := time.Now().Format(time.RFC3339)
+	logLine := fmt.Sprintf("%s status=%s to=%s\n", timestamp, status, to)
+
+	if _, err := f.WriteString(logLine); err != nil {
+		fmt.Printf("[WA-LOG-ERROR] Failed to write to log file: %v\n", err)
 	}
 }
 
