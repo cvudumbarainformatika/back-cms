@@ -126,10 +126,31 @@ func GetAllAgenda(db *sqlx.DB, filters map[string]interface{}, offset int, limit
 	}
 
 	// Add sorting
-	if upcoming, ok := filters["upcoming"].(bool); ok && upcoming {
-		query += ` ORDER BY date ASC` // Upcoming events: nearest first
-	} else {
-		query += ` ORDER BY date DESC, created_at DESC` // Default: latest events (or newly created) first
+	sortField := "date"
+	if s, ok := filters["sort"].(string); ok && s != "" {
+		// Basic validation for sort field to prevent SQL injection
+		allowedFields := map[string]string{
+			"date":       "date",
+			"created_at": "created_at",
+			"title":      "title",
+		}
+		if validatedField, valid := allowedFields[s]; valid {
+			sortField = validatedField
+		}
+	}
+
+	sortOrder := "DESC"
+	if o, ok := filters["order"].(string); ok && (o == "ASC" || o == "DESC") {
+		sortOrder = o
+	} else if upcoming, ok := filters["upcoming"].(bool); ok && upcoming {
+		sortOrder = "ASC" // Default for upcoming is ASC
+	}
+
+	query += ` ORDER BY ` + sortField + ` ` + sortOrder
+
+	// If sorting by date, add created_at as secondary sort for consistency
+	if sortField == "date" {
+		query += `, created_at ` + sortOrder
 	}
 
 	// Add pagination

@@ -37,12 +37,15 @@ func (ac *AgendaController) GetList(c *gin.Context) {
 	upcoming := upcomingStr == "true"
 
 	// Get sort parameters
-	// Default sort depends on 'upcoming'. Handled in model, but we pass filters.
+	sort := c.DefaultQuery("sort", "date")
+	order := c.DefaultQuery("order", "") // If empty, model uses default based on upcoming
 
 	filters := map[string]interface{}{
 		"type":     agendaType,
 		"status":   status,
 		"upcoming": upcoming,
+		"sort":     sort,
+		"order":    order,
 	}
 
 	// Calculate offset
