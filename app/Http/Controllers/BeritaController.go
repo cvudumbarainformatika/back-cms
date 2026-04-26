@@ -140,7 +140,7 @@ func (bc *BeritaController) GetList(c *gin.Context) {
 	args = append(args, limit, offset)
 
 	// Fetch berita
-	var beritaList []models.Berita
+	beritaList := []models.Berita{}
 	err = bc.db.Select(&beritaList, query, args...)
 	if err != nil {
 		utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to fetch berita: "+err.Error(), nil)
@@ -148,9 +148,9 @@ func (bc *BeritaController) GetList(c *gin.Context) {
 	}
 
 	// Format response
-	beritaResponses := make([]gin.H, len(beritaList))
-	for i, berita := range beritaList {
-		beritaResponses[i] = formatBeritaResponse(berita, false) // false = tidak include content
+	beritaResponses := make([]gin.H, 0)
+	for _, berita := range beritaList {
+		beritaResponses = append(beritaResponses, formatBeritaResponse(berita, false))
 	}
 
 	// Use standard pagination response format
@@ -232,12 +232,12 @@ func (bc *BeritaController) Create(c *gin.Context) {
 	berita := &models.Berita{
 		Slug:     slug,
 		Title:    req.Title,
-		Excerpt:  req.Excerpt,
+		Excerpt:  &req.Excerpt,
 		Content:  req.Content,
-		ImageURL: req.ImageURL,
-		Category: req.Category,
-		Author:   req.Author,
-		Status:   req.Status,
+		ImageURL: &req.ImageURL,
+		Category: &req.Category,
+		Author:   &req.Author,
+		Status:   &req.Status,
 		Views:    0,
 		Tags:     req.Tags,
 	}
@@ -302,12 +302,12 @@ func (bc *BeritaController) Update(c *gin.Context) {
 
 	// Update fields
 	berita.Title = req.Title
-	berita.Excerpt = req.Excerpt
+	berita.Excerpt = &req.Excerpt
 	berita.Content = req.Content
-	berita.ImageURL = req.ImageURL
-	berita.Category = req.Category
-	berita.Author = req.Author
-	berita.Status = req.Status
+	berita.ImageURL = &req.ImageURL
+	berita.Category = &req.Category
+	berita.Author = &req.Author
+	berita.Status = &req.Status
 	berita.Tags = req.Tags
 
 	// Set author_id if provided
@@ -425,7 +425,7 @@ func (bc *BeritaController) Patch(c *gin.Context) {
 
 	// Update status if provided
 	if req.Status != "" {
-		berita.Status = req.Status
+		berita.Status = &req.Status
 		if req.Status == "published" && berita.PublishedAt == nil {
 			now := time.Now()
 			berita.PublishedAt = &now
@@ -551,7 +551,7 @@ func formatBeritaResponse(berita models.Berita, includeContent bool) gin.H {
 	}
 
 	// Add rejection fields if status is rejected
-	if berita.Status == "rejected" {
+	if berita.Status != nil && *berita.Status == "rejected" {
 		if berita.RejectionReason != nil {
 			response["rejection_reason"] = berita.RejectionReason
 		}

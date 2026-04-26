@@ -39,6 +39,7 @@ type ContentInput struct {
 	Image       ContentImage          `json:"image"`
 	Badge       ContentBadge          `json:"badge"`
 	Authors     models.ContentAuthors `json:"authors"`
+	VideoURL    *string               `json:"video_url"`
 }
 
 func (c *ContentController) InitTable() {
@@ -54,6 +55,7 @@ func (c *ContentController) InitTable() {
 		image_src VARCHAR(255),
 		badge_label VARCHAR(100),
 		authors JSON,
+		video_url VARCHAR(255),
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 		INDEX idx_slug (slug)
@@ -128,12 +130,12 @@ func (c *ContentController) SaveContent(ctx *gin.Context) {
 	if err == sql.ErrNoRows {
 		// Insert
 		insertQuery := `
-			INSERT INTO content_pages (slug, title, description, body, html, date, image_src, badge_label, authors, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+			INSERT INTO content_pages (slug, title, description, body, html, date, image_src, badge_label, authors, video_url, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
 		`
 		res, err := c.DB.Exec(insertQuery,
 			input.Slug, input.Title, input.Description, input.Body, input.HTML,
-			parsedDate, input.Image.Src, input.Badge.Label, input.Authors,
+			parsedDate, input.Image.Src, input.Badge.Label, input.Authors, input.VideoURL,
 		)
 		if err != nil {
 			utils.Error(ctx, http.StatusInternalServerError, "insert_error", err.Error(), nil)
@@ -150,12 +152,12 @@ func (c *ContentController) SaveContent(ctx *gin.Context) {
 		// Update
 		updateQuery := `
 			UPDATE content_pages 
-			SET title=?, description=?, body=?, html=?, date=?, image_src=?, badge_label=?, authors=?, updated_at=NOW()
+			SET title=?, description=?, body=?, html=?, date=?, image_src=?, badge_label=?, authors=?, video_url=?, updated_at=NOW()
 			WHERE id=?
 		`
 		_, err := c.DB.Exec(updateQuery,
 			input.Title, input.Description, input.Body, input.HTML,
-			parsedDate, input.Image.Src, input.Badge.Label, input.Authors,
+			parsedDate, input.Image.Src, input.Badge.Label, input.Authors, input.VideoURL,
 			existsID,
 		)
 		if err != nil {

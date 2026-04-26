@@ -23,6 +23,7 @@ type Application struct {
 	Redis           *redis.Client
 	Config          *config.Config
 	BirthdayService *services.BirthdayService
+	RSSService      *services.RSSService
 }
 
 // NewApplication creates and initializes a new application instance
@@ -73,11 +74,13 @@ func NewApplication() (*Application, error) {
 
 	log.Println("Database connection established successfully")
 
-	// Run migrations (Manual execution recommended)
-	// migrator := database.NewMigrator(db.DB, "database/migrations")
-	// if err := migrator.RunMigrations(); err != nil {
-	// 	return nil, fmt.Errorf("failed to run migrations: %w", err)
-	// }
+	// Run migrations (Automatic execution enabled)
+	migrator := database.NewMigrator(db.DB, "database/migrations")
+	if err := migrator.RunMigrations(); err != nil {
+		log.Printf("Warning: failed to run migrations: %v", err)
+		// We don't return error here to allow app to start even if migrations fail
+		// (e.g. table already exists or connection issue)
+	}
 
 	// Run seeders (Manual execution recommended)
 	// if err := seeders.RunSeeders(db.DB); err != nil {
@@ -99,6 +102,7 @@ func NewApplication() (*Application, error) {
 		Redis:           rdb,
 		Config:          cfg,
 		BirthdayService: birthdayService,
+		RSSService:      services.NewRSSService(db.DB, rdb),
 	}
 
 	// Start background scheduler
@@ -127,14 +131,31 @@ func (app *Application) StartScheduler() {
 		if err := app.BirthdayService.CheckAndSendGreetings(); err != nil {
 			log.Printf("Error during startup birthday check: %v", err)
 		}
+		
+		// Initial RSS sync on startup
+		log.Println("Executing initial RSS sync on startup...")
+		go func() {
+			if err := app.RSSService.FetchAndStoreFeeds(); err != nil {
+				log.Printf("Error during startup RSS sync: %v", err)
+			}
+		}()
 
 		for range ticker.C {
 			now := time.Now()
-			// Only run at 08:00 AM
+			
+			// 1. Birthday Check (Only at 08:00 AM)
 			if now.Hour() == 8 {
 				log.Println("Executing scheduled birthday greetings...")
 				if err := app.BirthdayService.CheckAndSendGreetings(); err != nil {
 					log.Printf("Error executing scheduled birthday greetings: %v", err)
+				}
+			}
+
+			// 2. RSS Sync (Every 6 hours)
+			if now.Hour() % 6 == 0 {
+				log.Println("Executing scheduled RSS sync...")
+				if err := app.RSSService.FetchAndStoreFeeds(); err != nil {
+					log.Printf("Error executing scheduled RSS sync: %v", err)
 				}
 			}
 		}

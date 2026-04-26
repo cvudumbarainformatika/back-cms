@@ -41,6 +41,7 @@ type ContentPage struct {
 	ImageSrc    string         `db:"image_src" json:"image_src"`
 	BadgeLabel  string         `db:"badge_label" json:"badge_label"`
 	Authors     ContentAuthors `db:"authors" json:"authors"`
+	VideoURL    *string        `db:"video_url" json:"video_url"`
 	CreatedAt   time.Time      `db:"created_at" json:"created_at"`
 	UpdatedAt   time.Time      `db:"updated_at" json:"updated_at"`
 }

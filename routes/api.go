@@ -35,6 +35,8 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	dashboardController := controllers.NewDashboardController(db)
 	documentController := controllers.NewDocumentController(db, cfg)
 	greetingController := controllers.NewGreetingController(db, mailService, waService, cfg)
+	externalNewsController := controllers.NewExternalNewsController(db, redis)
+	thumbnailController := controllers.NewThumbnailController(db, redis)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -109,6 +111,11 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 		// ==============================
 		v1.GET("/members/search", pdpiController.SearchPublicMembers)
 
+		// Thumbnails Public
+		v1.GET("/thumbnails", thumbnailController.Index)
+		v1.GET("/thumbnails/grouped", thumbnailController.PublicGrouped)
+		v1.GET("/thumbnails/categories", thumbnailController.Categories)
+
 		// ==============================
 		// Protected Routes (JWT Required)
 		// ==============================
@@ -151,6 +158,13 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				beritaAdmin.PUT("/:id", beritaController.Update)
 				beritaAdmin.PATCH("/:id", beritaController.Patch)
 				beritaAdmin.DELETE("/:id", beritaController.Delete)
+			}
+
+			// External News Management (Admin only)
+			externalNewsAdmin := protected.Group("/external-news")
+			{
+				externalNewsAdmin.GET("", externalNewsController.Index)
+				externalNewsAdmin.POST("/import/:id", externalNewsController.Import)
 			}
 
 			// Agenda Management routes (Admin only)
@@ -226,6 +240,15 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				pdpi.GET("/members", pdpiController.GetMembers)
 				pdpi.GET("/member/:npa", pdpiController.GetMemberByNPA)
 				pdpi.GET("/me", pdpiController.GetMyMemberData)
+			}
+			
+			// Thumbnails Admin
+			thumbnails := protected.Group("/thumbnails")
+			{
+				thumbnails.POST("", thumbnailController.Store)
+				thumbnails.PUT("/:id", thumbnailController.Update)
+				thumbnails.DELETE("/:id", thumbnailController.Delete)
+				thumbnails.DELETE("/category/:category", thumbnailController.DeleteCategory)
 			}
 		}
 	}

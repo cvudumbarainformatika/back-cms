@@ -4,8 +4,8 @@ FROM golang:1.23-alpine
 # Install dependencies
 RUN apk add --no-cache mysql-client
 
-# Install air for hot reload
-RUN go install github.com/cespare/reflex@latest
+# Install reflex for hot reload
+RUN go install github.com/cespare/reflex@v0.3.1
 
 # Set working directory
 WORKDIR /app

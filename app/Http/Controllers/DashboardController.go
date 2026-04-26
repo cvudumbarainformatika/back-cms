@@ -79,9 +79,26 @@ func (dc *DashboardController) GetStats(c *gin.Context) {
 		memberCount = 0
 	}
 
+	// 4. Upcoming Agenda Items
+	type AgendaSummary struct {
+		ID    int64  `db:"id" json:"id"`
+		Title string `db:"title" json:"title"`
+		Date  string `db:"date" json:"date"`
+		Type  string `db:"type" json:"type"`
+		SKP   int    `db:"skp" json:"skp"`
+	}
+	var upcomingAgenda []AgendaSummary
+	upcomingQuery := "SELECT id, title, date, type, skp FROM agenda WHERE deleted_at IS NULL AND date >= CURDATE() ORDER BY date ASC LIMIT 3"
+	err = dc.db.Select(&upcomingAgenda, upcomingQuery)
+	if err != nil {
+		fmt.Printf("Error fetching upcoming agenda: %v\n", err)
+		upcomingAgenda = []AgendaSummary{}
+	}
+
 	utils.Success(c, http.StatusOK, "Dashboard stats retrieved", gin.H{
-		"article_count": articleCount,
-		"agenda_count":  agendaCount,
-		"member_count":  memberCount,
+		"article_count":   articleCount,
+		"agenda_count":    agendaCount,
+		"member_count":    memberCount,
+		"upcoming_agenda": upcomingAgenda,
 	})
 }

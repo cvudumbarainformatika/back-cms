@@ -12,13 +12,13 @@ type Berita struct {
 	ID              int64      `db:"id" json:"id"`
 	Slug            string     `db:"slug" json:"slug"`
 	Title           string     `db:"title" json:"title"`
-	Excerpt         string     `db:"excerpt" json:"excerpt"`
+	Excerpt         *string    `db:"excerpt" json:"excerpt"`
 	Content         string     `db:"content" json:"content"`
-	ImageURL        string     `db:"image_url" json:"image_url"`
-	Category        string     `db:"category" json:"category"`
-	Author          string     `db:"author" json:"author"`
+	ImageURL        *string    `db:"image_url" json:"image_url"`
+	Category        *string    `db:"category" json:"category"`
+	Author          *string    `db:"author" json:"author"`
 	AuthorID        *string    `db:"author_id" json:"author_id,omitempty"`
-	Status          string     `db:"status" json:"status"`
+	Status          *string    `db:"status" json:"status"`
 	RejectionReason *string    `db:"rejection_reason" json:"rejection_reason,omitempty"`
 	RejectedAt      *time.Time `db:"rejected_at" json:"rejected_at,omitempty"`
 	RejectedBy      *string    `db:"rejected_by" json:"rejected_by,omitempty"`
@@ -34,7 +34,7 @@ type Berita struct {
 func (b *Berita) Create(db *sqlx.DB) error {
 	b.CreatedAt = time.Now()
 	b.UpdatedAt = time.Now()
-	if b.Status == "published" && b.PublishedAt == nil {
+	if b.Status != nil && *b.Status == "published" && b.PublishedAt == nil {
 		now := time.Now()
 		b.PublishedAt = &now
 	}
