@@ -164,6 +164,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			externalNewsAdmin := protected.Group("/external-news")
 			{
 				externalNewsAdmin.GET("", externalNewsController.Index)
+				externalNewsAdmin.POST("/sync", externalNewsController.Sync)
 				externalNewsAdmin.POST("/import/:id", externalNewsController.Import)
 			}
 

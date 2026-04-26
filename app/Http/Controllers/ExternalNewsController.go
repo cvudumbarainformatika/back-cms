@@ -166,3 +166,13 @@ func (c *ExternalNewsController) Import(ctx *gin.Context) {
 		},
 	})
 }
+
+func (c *ExternalNewsController) Sync(ctx *gin.Context) {
+	err := c.RSSService.FetchAndStoreFeeds()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal sinkronisasi RSS: " + err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Sinkronisasi RSS berhasil"})
+}
