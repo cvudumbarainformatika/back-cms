@@ -14,7 +14,7 @@ import (
 func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *config.Config) *services.BirthdayService {
 	// Initialize Services
 	mailService := services.NewMailService(cfg.Mail)
-	waService := services.NewWhatsAppService(cfg.Zuwinda)
+	waService := services.NewWhatsAppService(cfg.WABA360)
 	birthdayService := services.NewBirthdayService(db, mailService, waService)
 
 	// Initialize controllers

@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cvudumbarainformatika/backend/utils"
@@ -223,12 +224,29 @@ func (ctrl *BroadcastController) BroadcastBeritaWA(c *gin.Context) {
 		baseURL = baseURL[:len(baseURL)-1]
 	}
 
-	readMoreLink := fmt.Sprintf("%s/berita/%s", baseURL, berita.Slug)
-	message := fmt.Sprintf("*[PDPI News]*\n\n*%s*\n\n%s\n\nBaca selengkapnya:\n%s",
-		berita.Title,
-		berita.Excerpt,
-		readMoreLink,
-	)
+	// Let's re-fetch with ImageURL
+	var beritaWithImg struct {
+		Title    string `db:"title"`
+		Slug     string `db:"slug"`
+		ImageURL string `db:"image_url"`
+		Excerpt  string `db:"excerpt"`
+	}
+	ctrl.DB.Get(&beritaWithImg, "SELECT title, slug, image_url, excerpt FROM berita WHERE id = ?", id)
+	
+	readMoreLink := fmt.Sprintf("%s/berita/%s", baseURL, beritaWithImg.Slug)
+	
+	fullImageURL := ""
+	if ctrl.Config.Env == "local" {
+		fullImageURL = "https://hobiternak.com/wp-content/uploads/2017/08/bebek-unggulan.jpg"
+	} else if beritaWithImg.ImageURL != "" {
+		if strings.HasPrefix(beritaWithImg.ImageURL, "/") {
+			fullImageURL = baseURL + beritaWithImg.ImageURL
+		} else {
+			fullImageURL = beritaWithImg.ImageURL
+		}
+	} else {
+		fullImageURL = baseURL + "/images/default-news.jpg"
+	}
 
 	// 4. Determine Recipients
 	targetRecipients, err := ctrl.getWARecipients(c)
@@ -243,11 +261,11 @@ func (ctrl *BroadcastController) BroadcastBeritaWA(c *gin.Context) {
 	}
 
 	// 5. Send WA via Background Goroutine with delay
-	go func(to []string, msg string) {
-		fmt.Printf("[WA] Starting broadcast for %d recipients...\n", len(to))
+	go func(to []string, title, url, img string) {
+		fmt.Printf("[WA] Starting broadcast for %d recipients using 360dialog template...\n", len(to))
 		for i, number := range to {
 			msgNum := i + 1
-			if err := ctrl.WAService.SendMessage(number, msg); err != nil {
+			if err := ctrl.WAService.SendArtikel(number, title, url, img); err != nil {
 				fmt.Printf("[WA ERROR] [%d/%d] to %s: %v\n", msgNum, len(to), number, err)
 				ctrl.WAService.LogEvent(number, "failed")
 			} else {
@@ -255,27 +273,14 @@ func (ctrl *BroadcastController) BroadcastBeritaWA(c *gin.Context) {
 				ctrl.WAService.LogEvent(number, "sent")
 			}
 			
-			// 1. Random delay 3-6 seconds after EVERY message
+			// Delay random 3-6 seconds
 			if msgNum < len(to) {
-				delay := 3 + rand.Intn(4) // 3, 4, 5, or 6 seconds
-				
-				// 2. Batch system: After 40 messages, sleep 3-6 minutes
-				if msgNum % 40 == 0 {
-					sleepMinutes := 3 + rand.Intn(4)
-					totalBatches := (len(to) + 39) / 40
-					currentBatch := msgNum / 40
-					
-					fmt.Printf("[WA] Batch %d/%d selesai, menunggu %d menit...\n", 
-						currentBatch, totalBatches, sleepMinutes)
-					
-					time.Sleep(time.Duration(sleepMinutes) * time.Minute)
-				} else {
-					time.Sleep(time.Duration(delay) * time.Second)
-				}
+				delay := 3 + rand.Intn(4)
+				time.Sleep(time.Duration(delay) * time.Second)
 			}
 		}
 		fmt.Printf("[WA] Broadcast completed for %d recipients.\n", len(to))
-	}(targetRecipients, message)
+	}(targetRecipients, beritaWithImg.Title, readMoreLink, fullImageURL)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":         "WhatsApp broadcast process started in background",
@@ -283,7 +288,6 @@ func (ctrl *BroadcastController) BroadcastBeritaWA(c *gin.Context) {
 		"target":          c.DefaultQuery("target", "test"),
 	})
 }
-
 func (ctrl *BroadcastController) BroadcastAgenda(c *gin.Context) {
 	id := c.Param("id")
 
@@ -364,16 +368,12 @@ func (ctrl *BroadcastController) BroadcastAgendaWA(c *gin.Context) {
 
 	// 1. Fetch Agenda
 	var agenda struct {
-		ID          int    `json:"id"`
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		Status      string `json:"status"`
-		Date        string `json:"date"`
-		Slug        string `json:"slug"`
+		ID     int    `json:"id"`
+		Status string `json:"status"`
 	}
 
-	query := "SELECT id, title, description, status, date, slug FROM agenda WHERE id = ?"
-	err := ctrl.DB.QueryRow(query, id).Scan(&agenda.ID, &agenda.Title, &agenda.Description, &agenda.Status, &agenda.Date, &agenda.Slug)
+	query := "SELECT id, status FROM agenda WHERE id = ?"
+	err := ctrl.DB.QueryRow(query, id).Scan(&agenda.ID, &agenda.Status)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Agenda not found"})
 		return
@@ -391,12 +391,73 @@ func (ctrl *BroadcastController) BroadcastAgendaWA(c *gin.Context) {
 		baseURL = baseURL[:len(baseURL)-1]
 	}
 
-	readMoreLink := fmt.Sprintf("%s/agenda/%s", baseURL, agenda.Slug)
-	message := fmt.Sprintf("*[PDPI Agenda]*\n\n*%s*\n\nTanggal: %s\n\nLihat detail agenda:\n%s",
-		agenda.Title,
-		agenda.Date,
-		readMoreLink,
-	)
+	// 3. Fetch full data for Agenda template
+	var ag struct {
+		Title           string    `db:"title"`
+		IsOnline        bool      `db:"is_online"`
+		Location        string    `db:"location"`
+		Date            time.Time `db:"date"`
+		Fee             string    `db:"fee"`
+		Quota           int       `db:"quota"`
+		RegistrationURL string    `db:"registration_url"`
+		ImageURL        string    `db:"image_url"`
+		Slug            string    `db:"slug"`
+	}
+	err = ctrl.DB.Get(&ag, "SELECT title, is_online, location, date, fee, quota, registration_url, image_url, slug FROM agenda WHERE id = ?", id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agenda data: " + err.Error()})
+		return
+	}
+
+	readMoreLink := fmt.Sprintf("%s/agenda/%s", baseURL, ag.Slug)
+	
+	mode := "Luring"
+	if ag.IsOnline {
+		mode = "Daring"
+	}
+	
+	location := ag.Location
+	if ag.IsOnline && location == "" {
+		location = "Zoom/Cloud Meeting"
+	}
+	
+	timeStr := ag.Date.Format("Monday, 02 January 2006 pukul 15:04 MST")
+	// Replace English names with Indonesian names manually
+	timeStr = strings.NewReplacer(
+		"Monday", "Senin", "Tuesday", "Selasa", "Wednesday", "Rabu",
+		"Thursday", "Kamis", "Friday", "Jumat", "Saturday", "Sabtu", "Sunday", "Minggu",
+		"January", "Januari", "February", "Februari", "March", "Maret", "May", "Mei",
+		"June", "Juni", "July", "Juli", "August", "Agustus", "October", "Oktober", "December", "Desember",
+	).Replace(timeStr)
+
+	fee := ag.Fee
+	if fee == "" || fee == "0" {
+		fee = "Gratis"
+	}
+	
+	quota := strconv.Itoa(ag.Quota)
+	if ag.Quota == 0 {
+		quota = "Tanpa Batas"
+	}
+
+	regURL := ag.RegistrationURL
+	if regURL == "" {
+		regURL = readMoreLink
+	}
+
+	// Image URL
+	fullImageURL := ""
+	if ctrl.Config.Env == "local" {
+		fullImageURL = "https://hobiternak.com/wp-content/uploads/2017/08/bebek-unggulan.jpg"
+	} else if ag.ImageURL != "" {
+		if strings.HasPrefix(ag.ImageURL, "/") {
+			fullImageURL = baseURL + ag.ImageURL
+		} else {
+			fullImageURL = ag.ImageURL
+		}
+	} else {
+		fullImageURL = baseURL + "/images/default-agenda.jpg"
+	}
 
 	// 4. Determine Recipients
 	targetRecipients, err := ctrl.getWARecipients(c)
@@ -411,11 +472,13 @@ func (ctrl *BroadcastController) BroadcastAgendaWA(c *gin.Context) {
 	}
 
 	// 5. Send WA via Background Goroutine with delay
-	go func(to []string, msg string) {
-		fmt.Printf("[WA-AGENDA] Starting broadcast for %d recipients...\n", len(to))
+	go func(to []string) {
+		fmt.Printf("[WA-AGENDA] Starting broadcast for %d recipients using 360dialog template...\n", len(to))
 		for i, number := range to {
 			msgNum := i + 1
-			if err := ctrl.WAService.SendMessage(number, msg); err != nil {
+			err := ctrl.WAService.SendAgenda(number, ag.Title, mode, location, timeStr, fee, quota, regURL, fullImageURL)
+			
+			if err != nil {
 				fmt.Printf("[WA-AGENDA ERROR] [%d/%d] to %s: %v\n", msgNum, len(to), number, err)
 				ctrl.WAService.LogEvent(number, "failed")
 			} else {
@@ -423,23 +486,14 @@ func (ctrl *BroadcastController) BroadcastAgendaWA(c *gin.Context) {
 				ctrl.WAService.LogEvent(number, "sent")
 			}
 
-			// 1. Random delay 3-6 seconds
+			// Delay random 3-6 seconds
 			if msgNum < len(to) {
 				delay := 3 + rand.Intn(4)
-
-				// 2. Batch system: 40 messages -> 3-6 minutes sleep
-				if msgNum % 40 == 0 {
-					sleepMinutes := 3 + rand.Intn(4)
-					fmt.Printf("[WA-AGENDA] Batch %d/%d selesai, menunggu %d menit...\n", 
-						msgNum/40, (len(to)+39)/40, sleepMinutes)
-					time.Sleep(time.Duration(sleepMinutes) * time.Minute)
-				} else {
-					time.Sleep(time.Duration(delay) * time.Second)
-				}
+				time.Sleep(time.Duration(delay) * time.Second)
 			}
 		}
 		fmt.Printf("[WA-AGENDA] Broadcast completed for %d recipients.\n", len(to))
-	}(targetRecipients, message)
+	}(targetRecipients)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":         "WhatsApp Agenda broadcast started in background",

@@ -19,7 +19,7 @@ type Config struct {
 	Redis     RedisConfig
 	PDPI      PDPIConfig
 	Mail      MailConfig
-	Zuwinda   ZuwindaConfig
+	WABA360   WABA360Config
 }
 
 // AppConfig holds application-specific configuration
@@ -86,11 +86,10 @@ type PDPIConfig struct {
 	Timeout int // in seconds
 }
 
-// ZuwindaConfig holds Zuwinda API configuration
-type ZuwindaConfig struct {
-	AccountID string
-	AccessKey string
-	BaseURL   string
+// WABA360Config holds 360dialog WhatsApp API configuration
+type WABA360Config struct {
+	APIKey  string
+	BaseURL string
 }
 
 // LoadConfig loads configuration from .env file and environment variables
@@ -147,10 +146,9 @@ func LoadConfig() (*Config, error) {
 			User:     getEnv("MAIL_USER", ""),
 			Password: getEnv("MAIL_PASSWORD", ""),
 		},
-		Zuwinda: ZuwindaConfig{
-			AccountID: getEnv("ZUWINDA_ACCOUNT_ID", ""),
-			AccessKey: getEnv("ZUWINDA_ACCESS_KEY", ""),
-			BaseURL:   getEnv("ZUWINDA_BASE_URL", "https://api.zuwinda.com/v2"),
+		WABA360: WABA360Config{
+			APIKey:  getEnv("WABA_360_API_KEY", ""),
+			BaseURL: getEnv("WABA_360_BASE_URL", "https://waba-v2.360dialog.io/messages"),
 		},
 	}
 

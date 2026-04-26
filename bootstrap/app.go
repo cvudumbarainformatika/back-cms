@@ -94,7 +94,10 @@ func NewApplication() (*Application, error) {
 	}
 
 	// Setup routes and get services that need scheduling
-	birthdayService := routes.SetupRoutes(router, db.DB, rdb, cfg)
+	mailService := services.NewMailService(cfg.Mail)
+	waService := services.NewWhatsAppService(cfg.WABA360)
+	birthdayService := services.NewBirthdayService(db.DB, mailService, waService)
+	routes.SetupRoutes(router, db.DB, rdb, cfg)
 
 	app := &Application{
 		Router:          router,

@@ -174,35 +174,45 @@ func (gc *GreetingController) SendWA(c *gin.Context) {
 		return
 	}
 
-	// Prepare message
-	message := fmt.Sprintf("*%s*\n\n%s", greeting.Title, greeting.Content)
 	
 	// Send in background
-	go func(to []string, msg, img string) {
-		// Use placeholder image if in local environment (Zuwinda needs public URL)
-		if gc.config.App.Env == "local" && img != "" {
-			img = "https://hobiternak.com/wp-content/uploads/2017/08/bebek-unggulan.jpg"
-		} else if img != "" && strings.HasPrefix(img, "/") {
-			// Handle relative URL in production
-			baseURL := strings.TrimSuffix(gc.config.App.BaseURL, "/")
-			img = baseURL + img
+	go func(to []string, title, img string) {
+		// Base URL for links and images
+		baseURL := strings.TrimSuffix(gc.config.App.BaseURL, "/")
+		
+		// Image URL for WABA
+		fullImageURL := ""
+		if gc.config.App.Env == "local" {
+			fullImageURL = "https://hobiternak.com/wp-content/uploads/2017/08/bebek-unggulan.jpg"
+		} else if img != "" {
+			if strings.HasPrefix(img, "/") {
+				fullImageURL = baseURL + img
+			} else {
+				fullImageURL = img
+			}
+		} else {
+			// Placeholder or default if none
+			fullImageURL = baseURL + "/images/default-greeting.jpg"
 		}
-		log.Printf("[WA] Preparing to send to recipients. Image URL: %s", img)
+
+		// URL link for greeting (using base website URL or specific link if exists)
+		greetingURL := baseURL
+
+		log.Printf("[WA-GREETING] Preparing to send using 360dialog template. Image URL: %s", fullImageURL)
 
 		for _, number := range to {
-			var err error
-			if img != "" {
-				err = gc.wa.SendImageMessage(number, msg, img)
-				log.Printf("[WA] Sending image to %s: err=%v", number, err)
+			err := gc.wa.SendGreeting(number, title, greetingURL, fullImageURL)
+			if err != nil {
+				log.Printf("[WA-GREETING ERROR] Failed to send to %s: %v", number, err)
 			} else {
-				err = gc.wa.SendMessage(number, msg)
-				log.Printf("[WA] Sending text to %s: err=%v", number, err)
+				log.Printf("[WA-GREETING] Sent to %s", number)
 			}
-			// Jeda random antara 3 sampai 6 detik untuk menghindari deteksi spam
-			jitter := rand.Intn(3000) // 0-3000ms
-			time.Sleep(time.Duration(3000+jitter) * time.Millisecond)
+			
+			// Random delay 3-6 seconds
+			delay := 3000 + rand.Intn(3000)
+			time.Sleep(time.Duration(delay) * time.Millisecond)
 		}
-	}(recipients, message, greeting.ImageURL)
+	}(recipients, greeting.Title, greeting.ImageURL)
 
 	utils.Success(c, http.StatusOK, "WhatsApp sending started in background", gin.H{
 		"recipient_count": len(recipients),
