@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"os"
@@ -76,6 +77,9 @@ type WABAPayload struct {
 // SendTemplateMessage sends a template message using 360dialog WABA API
 func (s *WhatsAppService) SendTemplateMessage(to, templateName string, bodyParams []WABAParameter, imageURL string) error {
 	components := []WABAComponent{}
+
+	// Clean imageURL from HTML escaped characters like &amp;
+	imageURL = html.UnescapeString(imageURL)
 
 	// 1. Add Header if image is provided
 	if imageURL != "" {

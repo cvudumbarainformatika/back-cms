@@ -273,9 +273,9 @@ func (ctrl *BroadcastController) BroadcastBeritaWA(c *gin.Context) {
 				ctrl.WAService.LogEvent(number, "sent")
 			}
 			
-			// Delay random 3-6 seconds
+			// Delay random 5-10 seconds to avoid spam flagging
 			if msgNum < len(to) {
-				delay := 3 + rand.Intn(4)
+				delay := 5 + rand.Intn(6)
 				time.Sleep(time.Duration(delay) * time.Second)
 			}
 		}
@@ -486,9 +486,9 @@ func (ctrl *BroadcastController) BroadcastAgendaWA(c *gin.Context) {
 				ctrl.WAService.LogEvent(number, "sent")
 			}
 
-			// Delay random 3-6 seconds
+			// Delay random 5-10 seconds to avoid spam flagging
 			if msgNum < len(to) {
-				delay := 3 + rand.Intn(4)
+				delay := 5 + rand.Intn(6)
 				time.Sleep(time.Duration(delay) * time.Second)
 			}
 		}
