@@ -36,9 +36,9 @@ type ContentInput struct {
 	Body        string                `json:"body"`
 	HTML        string                `json:"html"`
 	Date        string                `json:"date"` // ISO string
-	Image       ContentImage          `json:"image"`
-	Badge       ContentBadge          `json:"badge"`
-	Authors     models.ContentAuthors `json:"authors"`
+	Image       *ContentImage         `json:"image"`
+	Badge       *ContentBadge         `json:"badge"`
+	Authors     *models.ContentAuthors `json:"authors"`
 	VideoURL    *string               `json:"video_url"`
 }
 
@@ -127,6 +127,24 @@ func (c *ContentController) SaveContent(ctx *gin.Context) {
 	checkQuery := `SELECT id FROM content_pages WHERE slug = ?`
 	err = c.DB.Get(&existsID, checkQuery, input.Slug)
 
+	// Extract nested values safely
+	var imageSrc string
+	if input.Image != nil {
+		imageSrc = input.Image.Src
+	}
+
+	var badgeLabel string
+	if input.Badge != nil {
+		badgeLabel = input.Badge.Label
+	}
+
+	var authors interface{}
+	if input.Authors != nil {
+		authors = input.Authors
+	} else {
+		authors = models.ContentAuthors{}
+	}
+
 	if err == sql.ErrNoRows {
 		// Insert
 		insertQuery := `
@@ -135,7 +153,7 @@ func (c *ContentController) SaveContent(ctx *gin.Context) {
 		`
 		res, err := c.DB.Exec(insertQuery,
 			input.Slug, input.Title, input.Description, input.Body, input.HTML,
-			parsedDate, input.Image.Src, input.Badge.Label, input.Authors, input.VideoURL,
+			parsedDate, imageSrc, badgeLabel, authors, input.VideoURL,
 		)
 		if err != nil {
 			utils.Error(ctx, http.StatusInternalServerError, "insert_error", err.Error(), nil)
@@ -157,7 +175,7 @@ func (c *ContentController) SaveContent(ctx *gin.Context) {
 		`
 		_, err := c.DB.Exec(updateQuery,
 			input.Title, input.Description, input.Body, input.HTML,
-			parsedDate, input.Image.Src, input.Badge.Label, input.Authors, input.VideoURL,
+			parsedDate, imageSrc, badgeLabel, authors, input.VideoURL,
 			existsID,
 		)
 		if err != nil {
