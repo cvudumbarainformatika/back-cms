@@ -112,6 +112,12 @@ func GetAllAgenda(db *sqlx.DB, filters map[string]interface{}, offset int, limit
 		countQuery += ` AND status = ?`
 		args = append(args, status)
 	}
+	if search, ok := filters["search"].(string); ok && search != "" {
+		searchPattern := "%" + search + "%"
+		query += ` AND (title LIKE ? OR description LIKE ? OR location LIKE ?)`
+		countQuery += ` AND (title LIKE ? OR description LIKE ? OR location LIKE ?)`
+		args = append(args, searchPattern, searchPattern, searchPattern)
+	}
 	if upcoming, ok := filters["upcoming"].(bool); ok && upcoming {
 		// Filter for upcoming events (date >= now)
 		query += ` AND date >= NOW()`

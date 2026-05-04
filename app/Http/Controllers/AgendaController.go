@@ -33,6 +33,7 @@ func (ac *AgendaController) GetList(c *gin.Context) {
 	// Get filter parameters
 	agendaType := c.Query("type")
 	status := c.Query("status")
+	search := c.Query("search")
 	upcomingStr := c.Query("upcoming")
 	upcoming := upcomingStr == "true"
 
@@ -43,6 +44,7 @@ func (ac *AgendaController) GetList(c *gin.Context) {
 	filters := map[string]interface{}{
 		"type":     agendaType,
 		"status":   status,
+		"search":   search,
 		"upcoming": upcoming,
 		"sort":     sort,
 		"order":    order,
