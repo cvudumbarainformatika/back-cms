@@ -37,6 +37,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	greetingController := controllers.NewGreetingController(db, mailService, waService, cfg)
 	externalNewsController := controllers.NewExternalNewsController(db, redis)
 	thumbnailController := controllers.NewThumbnailController(db, redis)
+	typeDokumenController := controllers.NewTypeDokumenController(db)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -232,6 +233,15 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				documents.DELETE("/:id", documentController.Delete)
 			}
 
+			typeDokumen := protected.Group("/typedokumen")
+			{
+				typeDokumen.GET("", typeDokumenController.GetList)
+				typeDokumen.GET("/:id", typeDokumenController.GetByID)
+				typeDokumen.POST("", typeDokumenController.Create)
+				typeDokumen.PUT("/:id", typeDokumenController.Update)
+				typeDokumen.DELETE("/:id", typeDokumenController.Delete)
+			}
+
 			// PDPI Integration routes (Protected)
 			pdpi := protected.Group("/pdpi")
 			{
@@ -242,7 +252,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				pdpi.GET("/member/:npa", pdpiController.GetMemberByNPA)
 				pdpi.GET("/me", pdpiController.GetMyMemberData)
 			}
-			
+
 			// Thumbnails Admin
 			thumbnails := protected.Group("/thumbnails")
 			{

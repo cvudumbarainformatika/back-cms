@@ -5,14 +5,15 @@ import (
 	"strconv"
 	"strings"
 
+	"context"
+	"encoding/json"
+	"time"
+
 	models "github.com/cvudumbarainformatika/backend/app/Models"
 	"github.com/cvudumbarainformatika/backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
-	"encoding/json"
-	"time"
-	"context"
 )
 
 type ThumbnailController struct {
