@@ -251,6 +251,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				pdpi.GET("/members", pdpiController.GetMembers)
 				pdpi.GET("/member/:npa", pdpiController.GetMemberByNPA)
 				pdpi.GET("/me", pdpiController.GetMyMemberData)
+				pdpi.POST("/test-birthday/:id", pdpiController.TestSendBirthdayGreeting) // Test endpoint: send birthday greeting
 			}
 
 			// Thumbnails Admin
@@ -271,6 +272,8 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			"database": "connected",
 		})
 	})
+	// router.GET("/sync-all-members", pdpiController.SyncAllMembers)
+	router.GET("/test-birthday/:id", pdpiController.TestSendBirthdayGreeting)
 
 	return birthdayService
 }

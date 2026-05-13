@@ -32,14 +32,16 @@ func (s *BirthdayService) CheckAndSendGreetings() error {
 	fmt.Printf("[%s] Checking for birthdays today (%02d-%02d)...\n", now.Format("2006-01-02 15:04:05"), day, month)
 
 	var members []struct {
-		Nama  string  `db:"nama"`
-		Email *string `db:"email"`
-		NoHP  *string `db:"no_hp"`
+		Nama   string  `db:"nama"`
+		Email  *string `db:"email"`
+		NoHP   *string `db:"no_hp"`
+		Gelar  *string `db:"gelar"`
+		Gelar2 *string `db:"gelar2"`
 	}
 
 	// Query for MySQL
 	query := `
-		SELECT nama, email, no_hp 
+		SELECT nama, email, no_hp, gelar, gelar2
 		FROM pdpi_members 
 		WHERE MONTH(tgl_lahir) = ? AND DAY(tgl_lahir) = ?
 	`
@@ -57,9 +59,11 @@ func (s *BirthdayService) CheckAndSendGreetings() error {
 
 	// Run the broadcast in a single background goroutine
 	go func(targets []struct {
-		Nama  string  `db:"nama"`
-		Email *string `db:"email"`
-		NoHP  *string `db:"no_hp"`
+		Nama   string  `db:"nama"`
+		Email  *string `db:"email"`
+		NoHP   *string `db:"no_hp"`
+		Gelar  *string `db:"gelar"`
+		Gelar2 *string `db:"gelar2"`
 	}) {
 		total := len(targets)
 		for i, m := range targets {
@@ -79,10 +83,18 @@ func (s *BirthdayService) CheckAndSendGreetings() error {
 			if m.NoHP != nil && *m.NoHP != "" {
 				normalized := utils.NormalizePhoneNumber(*m.NoHP)
 				if normalized != "" {
-					message := fmt.Sprintf("Halo %s 👋,\n\nKami segenap keluarga besar *PDPI (Perhimpunan Dokter Paru Indonesia)* mengucapkan:\n\n✨ *Selamat Ulang Tahun!* ✨\n\nSemoga panjang umur, sehat selalu, dan sukses dalam menjalankan tugas mulia bagi bangsa dan sesama.\n\nSalam Hangat,\n*PDPI Pusat*", m.Nama)
+					// Prepare parameters from database
+					gelarStr := ""
+					if m.Gelar != nil {
+						gelarStr = *m.Gelar
+					}
+					gelar2Str := ""
+					if m.Gelar2 != nil {
+						gelar2Str = *m.Gelar2
+					}
 					
 					fmt.Printf("[BIRTHDAY-WA] [%d/%d] Sending to %s...\n", msgNum, total, normalized)
-					if err := s.WAService.SendMessage(normalized, message); err != nil {
+					if err := s.WAService.SendUltah(normalized, gelarStr, m.Nama, gelar2Str); err != nil {
 						fmt.Printf("[BIRTHDAY-WA ERROR] to %s: %v\n", m.Nama, err)
 						s.WAService.LogEvent(normalized, "failed")
 					} else {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	models "github.com/cvudumbarainformatika/backend/app/Models"
@@ -19,6 +20,7 @@ import (
 type PDPIController struct {
 	db          *sqlx.DB
 	pdpiService *services.PDPIService
+	waba360     *config.WABA360Config
 }
 
 // NewPDPIController creates a new PDPI controller instance
@@ -26,6 +28,7 @@ func NewPDPIController(db *sqlx.DB, cfg *config.Config) *PDPIController {
 	return &PDPIController{
 		db:          db,
 		pdpiService: services.NewPDPIService(&cfg.PDPI),
+		waba360:     &cfg.WABA360,
 	}
 }
 
@@ -772,5 +775,95 @@ func (pc *PDPIController) ImportExcel(c *gin.Context) {
 		"created": created,
 		"failed":  failed,
 		"rows_processed": len(rows) - 1,
+	})
+}
+
+type BirthdayMember struct {
+	ID     string  `db:"id"`
+	Nama   string  `db:"nama"`
+	Email  *string `db:"email"`
+	NoHP   *string `db:"no_hp"`
+	Gelar  *string `db:"gelar"`
+	Gelar2 *string `db:"gelar2"`
+}
+
+// TestSendBirthdayGreeting sends a birthday greeting test to a specific member by ID
+// This is a debug/test endpoint - should only be accessible to admins
+func (pc *PDPIController) TestSendBirthdayGreeting(c *gin.Context) {
+	memberID := c.Param("id")
+	if memberID == "" {
+		utils.Error(c, http.StatusBadRequest, "validation_error", "Member ID is required", nil)
+		return
+	}
+
+	member := BirthdayMember{}
+	// Fetch member from database
+	query := "SELECT id, nama, email, no_hp, gelar, gelar2 FROM pdpi_members WHERE id = ? LIMIT 1"
+	// member := &struct {
+	// 	ID     string
+	// 	Nama   string
+	// 	Email  *string
+	// 	NoHP   *string
+	// 	Gelar  *string
+	// 	Gelar2 *string
+	// }{}
+
+	err := pc.db.Get(&member, query, memberID)
+	fmt.Printf("RESULT: %+v\n", member)
+	if err != nil {
+		utils.Error(c, http.StatusNotFound, "not_found", "Member not found", nil)
+		return
+	}
+
+	// Initialize WhatsApp service
+	waService := services.NewWhatsAppService(*pc.waba360)
+
+	// Prepare data
+	var phoneNumber string
+	if member.NoHP != nil && *member.NoHP != "" {
+		phoneNumber = *member.NoHP
+	} else {
+		utils.Error(c, http.StatusBadRequest, "validation_error", "Member has no phone number", nil)
+		return
+	}
+
+	// Normalize phone number
+	phoneNumber = utils.NormalizePhoneNumber(phoneNumber)
+
+	// Prepare greeting data
+	gelarStr := ""
+	if member.Gelar != nil {
+		gelarStr = *member.Gelar
+		// Remove trailing dot if exists
+		// gelarStr = strings.TrimSuffix(gelarStr, ".")
+		gelarStr = strings.TrimRight(gelarStr, ". ")
+	}
+
+	gelar2Str := ""
+	if member.Gelar2 != nil {
+		gelar2Str = *member.Gelar2
+	}
+
+	// Send birthday greeting via WhatsApp using "ultah" template
+	waErr := waService.SendUltah(phoneNumber, gelarStr, member.Nama, gelar2Str)
+	if waErr != nil {
+		utils.Error(c, http.StatusInternalServerError, "whatsapp_error", "Failed to send WhatsApp message: "+waErr.Error(), nil)
+		return
+	}
+
+	if gelarStr == "" {
+	gelarStr = "-"
+}
+
+if gelar2Str == "" {
+	gelar2Str = "-"
+}
+
+	utils.Success(c, http.StatusOK, "Birthday greeting sent successfully", gin.H{
+		"member_id": memberID,
+		"nama":      member.Nama,
+		"phone":     phoneNumber,
+		"gelar":     gelarStr,
+		"gelar2":    gelar2Str,
 	})
 }

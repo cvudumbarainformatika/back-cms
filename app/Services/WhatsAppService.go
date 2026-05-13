@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/cvudumbarainformatika/backend/config"
@@ -143,6 +144,20 @@ func (s *WhatsAppService) SendAgenda(to, title, mode, location, timeStr, fee, qu
 func (s *WhatsAppService) SendGreeting(to, title, url, imageURL string) error {
 	// Greetings uses same template as artikel as per user request
 	return s.SendArtikel(to, title, url, imageURL)
+}
+
+// SendUltah sends birthday greeting using ultah template
+func (s *WhatsAppService) SendUltah(to, gelar, nama, gelar2 string) error {
+	// Remove trailing "." from gelar
+	gelar = strings.TrimSuffix(gelar, ".")
+
+	// Using positional parameters for ultah template
+	params := []WABAParameter{
+		{Type: "text", Text: gelar},
+		{Type: "text", Text: nama},
+		{Type: "text", Text: gelar2},
+	}
+	return s.SendTemplateMessage(to, "ultah2", params, "")
 }
 
 func (s *WhatsAppService) execute(payload interface{}) error {
