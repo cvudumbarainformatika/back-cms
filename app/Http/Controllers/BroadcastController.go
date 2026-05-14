@@ -245,7 +245,7 @@ func (ctrl *BroadcastController) BroadcastBeritaWA(c *gin.Context) {
 			fullImageURL = beritaWithImg.ImageURL
 		}
 	} else {
-		fullImageURL = baseURL + "/images/default-news.jpg"
+		fullImageURL = baseURL + "/images/no_image.jpg"
 	}
 
 	// 4. Determine Recipients
@@ -397,13 +397,14 @@ func (ctrl *BroadcastController) BroadcastAgendaWA(c *gin.Context) {
 		IsOnline        bool      `db:"is_online"`
 		Location        string    `db:"location"`
 		Date            time.Time `db:"date"`
+		EndDate         *time.Time `db:"end_date"`
 		Fee             string    `db:"fee"`
 		Quota           int       `db:"quota"`
 		RegistrationURL string    `db:"registration_url"`
 		ImageURL        string    `db:"image_url"`
 		Slug            string    `db:"slug"`
 	}
-	err = ctrl.DB.Get(&ag, "SELECT title, is_online, location, date, fee, quota, registration_url, image_url, slug FROM agenda WHERE id = ?", id)
+	err = ctrl.DB.Get(&ag, "SELECT title, is_online, location, date, end_date, fee, quota, registration_url, image_url, slug FROM agenda WHERE id = ?", id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agenda data: " + err.Error()})
 		return
@@ -421,14 +422,55 @@ func (ctrl *BroadcastController) BroadcastAgendaWA(c *gin.Context) {
 		location = "Zoom/Cloud Meeting"
 	}
 	
-	timeStr := ag.Date.Format("Monday, 02 January 2006 pukul 15:04 MST")
-	// Replace English names with Indonesian names manually
-	timeStr = strings.NewReplacer(
-		"Monday", "Senin", "Tuesday", "Selasa", "Wednesday", "Rabu",
-		"Thursday", "Kamis", "Friday", "Jumat", "Saturday", "Sabtu", "Sunday", "Minggu",
-		"January", "Januari", "February", "Februari", "March", "Maret", "May", "Mei",
-		"June", "Juni", "July", "Juli", "August", "Agustus", "October", "Oktober", "December", "Desember",
-	).Replace(timeStr)
+	// timeStr := ag.Date.Format("Monday, 02 January 2006 pukul 15:04 MST")
+	// // Replace English names with Indonesian names manually
+	// timeStr = strings.NewReplacer(
+	// 	"Monday", "Senin", "Tuesday", "Selasa", "Wednesday", "Rabu",
+	// 	"Thursday", "Kamis", "Friday", "Jumat", "Saturday", "Sabtu", "Sunday", "Minggu",
+	// 	"January", "Januari", "February", "Februari", "March", "Maret", "May", "Mei",
+	// 	"June", "Juni", "July", "Juli", "August", "Agustus", "October", "Oktober", "December", "Desember",
+	// ).Replace(timeStr)
+	startDate := ag.Date.Format("02 January 2006")
+
+	startDate = strings.NewReplacer(
+		"January", "Januari",
+		"February", "Februari",
+		"March", "Maret",
+		"April", "April",
+		"May", "Mei",
+		"June", "Juni",
+		"July", "Juli",
+		"August", "Agustus",
+		"September", "September",
+		"October", "Oktober",
+		"November", "November",
+		"December", "Desember",
+	).Replace(startDate)
+
+	timeStr := ""
+
+	if ag.EndDate != nil {
+		endDate := ag.EndDate.Format("02 January 2006")
+
+		endDate = strings.NewReplacer(
+			"January", "Januari",
+			"February", "Februari",
+			"March", "Maret",
+			"April", "April",
+			"May", "Mei",
+			"June", "Juni",
+			"July", "Juli",
+			"August", "Agustus",
+			"September", "September",
+			"October", "Oktober",
+			"November", "November",
+			"December", "Desember",
+		).Replace(endDate)
+
+		timeStr = startDate + " s/d " + endDate
+	} else {
+		timeStr = startDate + " s/d selesai"
+	}
 
 	fee := ag.Fee
 	if fee == "" || fee == "0" {
@@ -456,7 +498,7 @@ func (ctrl *BroadcastController) BroadcastAgendaWA(c *gin.Context) {
 			fullImageURL = ag.ImageURL
 		}
 	} else {
-		fullImageURL = baseURL + "/images/default-agenda.jpg"
+		fullImageURL = baseURL + "/images/no_image.jpg"
 	}
 
 	// 4. Determine Recipients
@@ -487,10 +529,10 @@ func (ctrl *BroadcastController) BroadcastAgendaWA(c *gin.Context) {
 			}
 
 			// Delay random 5-10 seconds to avoid spam flagging
-			if msgNum < len(to) {
-				delay := 5 + rand.Intn(6)
-				time.Sleep(time.Duration(delay) * time.Second)
-			}
+			// if msgNum < len(to) {
+			// 	delay := 5 + rand.Intn(6)
+			// 	time.Sleep(time.Duration(delay) * time.Second)
+			// }
 		}
 		fmt.Printf("[WA-AGENDA] Broadcast completed for %d recipients.\n", len(to))
 	}(targetRecipients)
