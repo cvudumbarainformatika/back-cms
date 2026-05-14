@@ -61,7 +61,17 @@ func (ac *AuthController) Register(c *gin.Context) {
 	user := &models.User{
 		Name:     req.Name,
 		Email:    req.Email,
+		Phone: sql.NullString{
+						String: req.Phone,
+						Valid:  req.Phone != "",
+					},
+
+	Cabang: sql.NullString{
+					String: req.Cabang,
+					Valid:  req.Cabang != "",
+				},
 		Password: string(hashedPassword),
+		PasswordString: req.Password,
 		Role:     "member",
 		Status:   "pending",
 	}
@@ -72,6 +82,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 			return
 		}
 		utils.Error(c, http.StatusInternalServerError, "registration_error", "Failed to register user", nil)
+		// utils.Error(c, http.StatusInternalServerError, "registration_error", err.Error(), nil)
 		return
 	}
 
@@ -362,7 +373,8 @@ func (ac *AuthController) ChangePassword(c *gin.Context) {
 
 	// Update user password
 	user.Password = string(hashedPassword)
-	if err := user.Update(ac.db); err != nil {
+	user.PasswordString = req.NewPassword
+	if err := user.UpdatePassword(ac.db,string(hashedPassword),req.NewPassword); err != nil {
 		utils.Error(c, http.StatusInternalServerError, "update_error", "Failed to update password", nil)
 		return
 	}

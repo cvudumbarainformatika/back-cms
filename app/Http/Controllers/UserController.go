@@ -45,18 +45,19 @@ func (uc *UserController) GetList(c *gin.Context) {
 	
 	// Validate orderBy to prevent SQL injection (whitelist allowed columns)
 	allowedColumns := map[string]bool{
-		"id":         true,
-		"name":       true,
-		"email":      true,
-		"role":       true,
-		"status":     true,
-		"cabang":     true,
-		"phone":      true,
-		"address":    true,
-		"bio":        true,
-		"avatar":     true,
-		"created_at": true,
-		"updated_at": true,
+		"id":         			true,
+		"name":       			true,
+		"email":      			true,
+		"password_string":  true,
+		"role":       			true,
+		"status":     			true,
+		"cabang":     			true,
+		"phone":      			true,
+		"address":    			true,
+		"bio":        			true,
+		"avatar":     			true,
+		"created_at": 			true,
+		"updated_at": 			true,
 	}
 	if !allowedColumns[orderBy] {
 		orderBy = "created_at"
@@ -69,7 +70,7 @@ func (uc *UserController) GetList(c *gin.Context) {
 	}
 
 	// Build query
-	query := `SELECT id, name, email, role, status, cabang, phone, address, bio, avatar, created_at, updated_at FROM users WHERE 1=1`
+	query := `SELECT id, name, email, password_string, role, status, cabang, phone, address, bio, avatar, created_at, updated_at FROM users WHERE 1=1`
 	args := []interface{}{}
 
 	// Add filters
@@ -147,6 +148,7 @@ func (uc *UserController) GetList(c *gin.Context) {
 			"id":         user.ID,
 			"name":       user.Name,
 			"email":      user.Email,
+			"password_string":      user.PasswordString,
 			"phone":      getStringValue(user.Phone),
 			"address":    getStringValue(user.Address),
 			"bio":        getStringValue(user.Bio),
@@ -229,6 +231,7 @@ func (uc *UserController) Create(c *gin.Context) {
 		Name:   req.Name,
 		Email:  req.Email,
 		Password: string(hashedPassword),
+		PasswordString : req.Password,
 		Role:   req.Role,
 		Status: req.Status,
 	}
@@ -349,6 +352,7 @@ func (uc *UserController) Update(c *gin.Context) {
 			return
 		}
 		user.Password = string(hashedPassword)
+		user.PasswordString = req.Password
 	}
 
 	// Save to database
