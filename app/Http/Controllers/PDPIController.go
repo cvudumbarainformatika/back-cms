@@ -21,6 +21,9 @@ type PDPIController struct {
 	db          *sqlx.DB
 	pdpiService *services.PDPIService
 	waba360     *config.WABA360Config
+
+	localMembersByNPA   map[string]*models.PDPIMember
+	localMembersByEmail map[string]*models.PDPIMember
 }
 
 // NewPDPIController creates a new PDPI controller instance
@@ -31,15 +34,75 @@ func NewPDPIController(db *sqlx.DB, cfg *config.Config) *PDPIController {
 		waba360:     &cfg.WABA360,
 	}
 }
+func KeepExistingString(newVal, oldVal *string) *string {
+	if newVal != nil && *newVal != "" {
+		return newVal
+	}
+	return oldVal
+}
 
-// Helper to map Supabase response to Local Model
-func (pc *PDPIController) mapSupabaseToLocal(pdpiMember services.SupabaseMember) *models.PDPIMember {
-	localMember := &models.PDPIMember{
-		ID:       pdpiMember.ID,
-		Nama:     pdpiMember.Nama,
-		SyncedAt: utils.TimeToPtr(time.Now()),
+func (pc *PDPIController) prepareLocalMemberCache() error {
+
+	var localMembers []models.PDPIMember
+
+	err := pc.db.Select(
+		&localMembers,
+		"SELECT * FROM pdpi_members",
+	)
+	if err != nil {
+		return err
 	}
 
+	pc.localMembersByNPA = make(map[string]*models.PDPIMember)
+	pc.localMembersByEmail = make(map[string]*models.PDPIMember)
+
+	for i := range localMembers {
+
+		member := &localMembers[i]
+
+		if member.NPA != "" {
+			pc.localMembersByNPA[member.NPA] = member
+		}
+
+		if member.Email != nil {
+			pc.localMembersByEmail[*member.Email] = member
+		}
+	}
+
+	return nil
+}
+// Helper to map Supabase response to Local Model
+func (pc *PDPIController) mapSupabaseToLocal(pdpiMember services.SupabaseMember) *models.PDPIMember {
+	// localMember := &models.PDPIMember{
+	// 	ID:       pdpiMember.ID,
+	// 	Nama:     pdpiMember.Nama,
+	// 	SyncedAt: utils.TimeToPtr(time.Now()),
+	// }
+	var existing *models.PDPIMember
+
+	npa := utils.PtrToString(pdpiMember.NPA)
+
+	if npa != "" {
+		existing = pc.localMembersByNPA[npa]
+	}
+
+	if existing == nil && pdpiMember.Email != nil {
+		existing = pc.localMembersByEmail[*pdpiMember.Email]
+	}
+
+	var localMember *models.PDPIMember
+
+	if existing != nil {
+		localMember = existing
+	} else {
+		localMember = &models.PDPIMember{}
+	}
+
+	localMember.ID = pdpiMember.ID
+	localMember.Nama = pdpiMember.Nama
+	localMember.SyncedAt = utils.TimeToPtr(time.Now())
+
+	
 	// Basic Fields
 	localMember.NPA = utils.PtrToString(pdpiMember.NPA) // Helper to handle nil pointer
 	if pdpiMember.NPANumeric != nil {
@@ -55,11 +118,20 @@ func (pc *PDPIController) mapSupabaseToLocal(pdpiMember services.SupabaseMember)
 		localMember.Gelar2 = pdpiMember.Gelar2
 	}
 	if pdpiMember.Email != nil {
-		localMember.Email = pdpiMember.Email
+		// localMember.Email = pdpiMember.Email
+		localMember.Email = KeepExistingString(
+												pdpiMember.Email,
+												existing.Email,
+											)
 	}
 	if pdpiMember.NoHP != nil {
-		localMember.NoHP = utils.StringToPtr(utils.NormalizePhoneNumber(*pdpiMember.NoHP))
+		// localMember.NoHP = utils.StringToPtr(utils.NormalizePhoneNumber(*pdpiMember.NoHP))
+		localMember.NoHP = KeepExistingString(
+												pdpiMember.NoHP,
+												existing.NoHP,
+											)
 	}
+	
 	if pdpiMember.NIK != nil {
 		localMember.NIK = pdpiMember.NIK
 	}
@@ -294,6 +366,11 @@ func (pc *PDPIController) SyncAllMembers(c *gin.Context) {
 		errorMessages []string
 	)
 
+	// fetch existing from db
+	err := pc.prepareLocalMemberCache()
+	if err != nil {
+		return 
+	}
 	// Fetch all members from Supabase via Service
 	supabaseMembers, err := pc.pdpiService.FetchMembersFromSupabase()
 	if err != nil {
