@@ -299,6 +299,12 @@ func (pc *PDPIController) SyncMember(c *gin.Context) {
 		return
 	}
 
+	// fetch existing from db
+	err := pc.prepareLocalMemberCache()
+	if err != nil {
+		return 
+	} 
+	
 	// Get user data
 	user, err := models.FindByID(pc.db, userIDInt64)
 	if err != nil || user == nil {
@@ -306,6 +312,8 @@ func (pc *PDPIController) SyncMember(c *gin.Context) {
 		return
 	}
 
+	
+	
 	// Parse request (optional email or npa)
 	var reqBody struct {
 		Email string `json:"email"`
