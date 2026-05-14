@@ -9,19 +9,20 @@ import (
 
 // User represents a user in the system
 type User struct {
-	ID        int64          `db:"id" json:"id"`
-	Name      string         `db:"name" json:"name"`
-	Email     string         `db:"email" json:"email"`
-	Password  string         `db:"password" json:"-"` // Don't expose password in responses
-	Role      string         `db:"role" json:"role"`
-	Status    string         `db:"status" json:"status"` // active, inactive, suspended
-	Cabang    sql.NullString `db:"cabang" json:"cabang"` // Branch/office location
-	Phone     sql.NullString `db:"phone" json:"phone"`
-	Address   sql.NullString `db:"address" json:"address"`
-	Bio       sql.NullString `db:"bio" json:"bio"`
-	Avatar    sql.NullString `db:"avatar" json:"avatar"`
-	CreatedAt time.Time      `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time      `db:"updated_at" json:"updated_at"`
+	ID        				int64          `db:"id" json:"id"`
+	Name      				string         `db:"name" json:"name"`
+	Email     				string         `db:"email" json:"email"`
+	Password  				string         `db:"password" json:"-"` // Don't expose password in responses
+	PasswordString    string         `db:"password_string" json:"password_string"`
+	Role      				string         `db:"role" json:"role"`
+	Status    				string         `db:"status" json:"status"` // active, inactive, suspended
+	Cabang    				sql.NullString `db:"cabang" json:"cabang"` // Branch/office location
+	Phone     				sql.NullString `db:"phone" json:"phone"`
+	Address   				sql.NullString `db:"address" json:"address"`
+	Bio       				sql.NullString `db:"bio" json:"bio"`
+	Avatar    				sql.NullString `db:"avatar" json:"avatar"`
+	CreatedAt 				time.Time      `db:"created_at" json:"created_at"`
+	UpdatedAt 				time.Time      `db:"updated_at" json:"updated_at"`
 }
 
 // CreateUser creates a new user in the database
@@ -36,10 +37,10 @@ func (u *User) Create(db *sqlx.DB) error {
 	}
 
 	query := `
-		INSERT INTO users (name, email, password, role, status, cabang, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO users (name, email, password, password_string, role, phone, status, cabang, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	result, err := db.Exec(query, u.Name, u.Email, u.Password, u.Role, u.Status, u.Cabang.String, u.CreatedAt, u.UpdatedAt)
+	result, err := db.Exec(query, u.Name, u.Email, u.Password, u.PasswordString, u.Role, u.Phone, u.Status, u.Cabang.String, u.CreatedAt, u.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -55,7 +56,7 @@ func (u *User) Create(db *sqlx.DB) error {
 // FindByEmail finds a user by email
 func FindByEmail(db *sqlx.DB, email string) (*User, error) {
 	user := &User{}
-	query := `SELECT id, name, email, password, role, status, cabang, phone, address, bio, avatar, created_at, updated_at FROM users WHERE email = ?`
+	query := `SELECT id, name, email, password, password_string, role, status, cabang, phone, address, bio, avatar, created_at, updated_at FROM users WHERE email = ?`
 	err := db.Get(user, query, email)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -69,7 +70,7 @@ func FindByEmail(db *sqlx.DB, email string) (*User, error) {
 // FindByID finds a user by ID
 func FindByID(db *sqlx.DB, id int64) (*User, error) {
 	user := &User{}
-	query := `SELECT id, name, email, password, role, status, cabang, phone, address, bio, avatar, created_at, updated_at FROM users WHERE id = ?`
+	query := `SELECT id, name, email, password, password_string, role, status, cabang, phone, address, bio, avatar, created_at, updated_at FROM users WHERE id = ?`
 	err := db.Get(user, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -92,7 +93,7 @@ func GetAll(db *sqlx.DB, offset int, limit int) ([]User, int64, error) {
 	}
 
 	// Get paginated results
-	query := `SELECT id, name, email, password, role, status, cabang, phone, address, bio, avatar, created_at, updated_at FROM users WHERE status != 'deleted' ORDER BY created_at DESC LIMIT ? OFFSET ?`
+	query := `SELECT id, name, email, password, password_string, role, status, cabang, phone, address, bio, avatar, created_at, updated_at FROM users WHERE status != 'deleted' ORDER BY created_at DESC LIMIT ? OFFSET ?`
 	err := db.Select(&users, query, limit, offset)
 	if err != nil {
 		return nil, 0, err
@@ -114,10 +115,10 @@ func (u *User) Update(db *sqlx.DB) error {
 }
 
 // UpdatePassword updates a user's password
-func (u *User) UpdatePassword(db *sqlx.DB, newPassword string) error {
+func (u *User) UpdatePassword(db *sqlx.DB, newPassword, newPassString string) error {
 	u.UpdatedAt = time.Now()
-	query := `UPDATE users SET password = ?, updated_at = ? WHERE id = ?`
-	_, err := db.Exec(query, newPassword, u.UpdatedAt, u.ID)
+	query := `UPDATE users SET password = ?, password_string = ?, updated_at = ? WHERE id = ?`
+	_, err := db.Exec(query, newPassword, newPassString, u.UpdatedAt, u.ID)
 	return err
 }
 
