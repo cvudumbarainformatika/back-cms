@@ -21,9 +21,6 @@ type PDPIController struct {
 	db          *sqlx.DB
 	pdpiService *services.PDPIService
 	waba360     *config.WABA360Config
-
-	localMembersByNPA   map[string]*models.PDPIMember
-	localMembersByEmail map[string]*models.PDPIMember
 }
 
 // NewPDPIController creates a new PDPI controller instance
@@ -41,7 +38,7 @@ func KeepExistingString(newVal, oldVal *string) *string {
 	return oldVal
 }
 
-func (pc *PDPIController) prepareLocalMemberCache() error {
+func (pc *PDPIController) prepareLocalMemberCache() (map[string]*models.PDPIMember, map[string]*models.PDPIMember, error) {
 
 	var localMembers []models.PDPIMember
 
@@ -50,29 +47,29 @@ func (pc *PDPIController) prepareLocalMemberCache() error {
 		"SELECT * FROM pdpi_members",
 	)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	pc.localMembersByNPA = make(map[string]*models.PDPIMember)
-	pc.localMembersByEmail = make(map[string]*models.PDPIMember)
+	byNPA := make(map[string]*models.PDPIMember)
+	byEmail := make(map[string]*models.PDPIMember)
 
 	for i := range localMembers {
 
 		member := &localMembers[i]
 
 		if member.NPA != "" {
-			pc.localMembersByNPA[member.NPA] = member
+			byNPA[member.NPA] = member
 		}
 
 		if member.Email != nil {
-			pc.localMembersByEmail[*member.Email] = member
+			byEmail[*member.Email] = member
 		}
 	}
 
-	return nil
+	return byNPA, byEmail, nil
 }
 // Helper to map Supabase response to Local Model
-func (pc *PDPIController) mapSupabaseToLocal(pdpiMember services.SupabaseMember) *models.PDPIMember {
+func (pc *PDPIController) mapSupabaseToLocal(pdpiMember services.SupabaseMember, byNPA map[string]*models.PDPIMember, byEmail map[string]*models.PDPIMember) *models.PDPIMember {
 	// localMember := &models.PDPIMember{
 	// 	ID:       pdpiMember.ID,
 	// 	Nama:     pdpiMember.Nama,
@@ -83,11 +80,11 @@ func (pc *PDPIController) mapSupabaseToLocal(pdpiMember services.SupabaseMember)
 	npa := utils.PtrToString(pdpiMember.NPA)
 
 	if npa != "" {
-		existing = pc.localMembersByNPA[npa]
+		existing = byNPA[npa]
 	}
 
 	if existing == nil && pdpiMember.Email != nil {
-		existing = pc.localMembersByEmail[*pdpiMember.Email]
+		existing = byEmail[*pdpiMember.Email]
 	}
 
 	var localMember *models.PDPIMember
@@ -118,18 +115,18 @@ func (pc *PDPIController) mapSupabaseToLocal(pdpiMember services.SupabaseMember)
 		localMember.Gelar2 = pdpiMember.Gelar2
 	}
 	if pdpiMember.Email != nil {
-		// localMember.Email = pdpiMember.Email
-		localMember.Email = KeepExistingString(
-												pdpiMember.Email,
-												existing.Email,
-											)
+		var oldEmail *string
+		if existing != nil {
+			oldEmail = existing.Email
+		}
+		localMember.Email = KeepExistingString(pdpiMember.Email, oldEmail)
 	}
 	if pdpiMember.NoHP != nil {
-		// localMember.NoHP = utils.StringToPtr(utils.NormalizePhoneNumber(*pdpiMember.NoHP))
-		localMember.NoHP = KeepExistingString(
-												pdpiMember.NoHP,
-												existing.NoHP,
-											)
+		var oldNoHP *string
+		if existing != nil {
+			oldNoHP = existing.NoHP
+		}
+		localMember.NoHP = KeepExistingString(pdpiMember.NoHP, oldNoHP)
 	}
 	
 	if pdpiMember.NIK != nil {
@@ -300,8 +297,9 @@ func (pc *PDPIController) SyncMember(c *gin.Context) {
 	}
 
 	// fetch existing from db
-	err := pc.prepareLocalMemberCache()
+	byNPA, byEmail, err := pc.prepareLocalMemberCache()
 	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to prepare local cache: "+err.Error(), nil)
 		return 
 	} 
 	
@@ -341,7 +339,7 @@ func (pc *PDPIController) SyncMember(c *gin.Context) {
 	}
 
 	// Map and Save
-	localMember := pc.mapSupabaseToLocal(*pdpiMember)
+	localMember := pc.mapSupabaseToLocal(*pdpiMember, byNPA, byEmail)
 
 	// Link to current user if emails match
 	if localMember.Email != nil && *localMember.Email == user.Email {
@@ -375,8 +373,9 @@ func (pc *PDPIController) SyncAllMembers(c *gin.Context) {
 	)
 
 	// fetch existing from db
-	err := pc.prepareLocalMemberCache()
+	byNPA, byEmail, err := pc.prepareLocalMemberCache()
 	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "database_error", "Failed to prepare local cache: "+err.Error(), nil)
 		return 
 	}
 	// Fetch all members from Supabase via Service
@@ -391,7 +390,7 @@ func (pc *PDPIController) SyncAllMembers(c *gin.Context) {
 	// Process each member
 	for _, pdpiMember := range supabaseMembers {
 		// Map to local model
-		localMember := pc.mapSupabaseToLocal(pdpiMember)
+		localMember := pc.mapSupabaseToLocal(pdpiMember, byNPA, byEmail)
 
 		// Try to link to existing user by email
 		if localMember.Email != nil && *localMember.Email != "" {
