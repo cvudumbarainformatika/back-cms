@@ -52,7 +52,7 @@ func (s *RSSService) FetchAndStoreFeeds() error {
 		URL  string
 	}{
 		{"CNN Indonesia Health", "https://www.cnnindonesia.com/gaya-hidup/rss"},
-		{"Antara News Health", "https://www.antaranews.com/rss/kesehatan.xml"},
+		{"Antara News Health", "https://www.antaranews.com/rss/terkini.xml"},
 		{"Detik Health", "https://health.detik.com/rss"},
 	}
 
