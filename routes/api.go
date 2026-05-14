@@ -38,6 +38,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 	externalNewsController := controllers.NewExternalNewsController(db, redis)
 	thumbnailController := controllers.NewThumbnailController(db, redis)
 	typeDokumenController := controllers.NewTypeDokumenController(db)
+	typeArtikelController := controllers.NewTypeArtikelController(db)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -81,6 +82,12 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 			berita.GET("", beritaController.GetList)
 			berita.GET("/categories", beritaController.GetCategories)
 			berita.GET("/s/:slug", beritaController.GetBySlug)
+		}
+
+		typeartikel := v1.Group("/typeartikel")
+		{
+			typeartikel.GET("", typeArtikelController.GetAll)
+			typeartikel.POST("", typeArtikelController.Create)
 		}
 
 		// ==============================
@@ -159,6 +166,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				beritaAdmin.PUT("/:id", beritaController.Update)
 				beritaAdmin.PATCH("/:id", beritaController.Patch)
 				beritaAdmin.DELETE("/:id", beritaController.Delete)
+
 			}
 
 			// External News Management (Admin only)
@@ -241,7 +249,6 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				typeDokumen.PUT("/:id", typeDokumenController.Update)
 				typeDokumen.DELETE("/:id", typeDokumenController.Delete)
 			}
-
 			// PDPI Integration routes (Protected)
 			pdpi := protected.Group("/pdpi")
 			{
@@ -262,6 +269,7 @@ func SetupRoutes(router *gin.Engine, db *sqlx.DB, redis *redis.Client, cfg *conf
 				thumbnails.DELETE("/:id", thumbnailController.Delete)
 				thumbnails.DELETE("/category/:category", thumbnailController.DeleteCategory)
 			}
+
 		}
 	}
 
