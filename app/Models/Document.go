@@ -15,6 +15,7 @@ type Document struct {
 	Type       string     `db:"type" json:"type"`
 	ValidUntil *time.Time `db:"valid_until" json:"valid_until"`
 	Status     string     `db:"status" json:"status"`
+	Jenis     string     `db:"jenis" json:"jenis"`
 	FileURL    string     `db:"file_url" json:"file_url"`
 	CreatedAt  time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt  time.Time  `db:"updated_at" json:"updated_at"`
@@ -27,10 +28,10 @@ func (d *Document) Create(db *sqlx.DB) error {
 	d.UpdatedAt = time.Now()
 
 	query := `
-		INSERT INTO documents (user_id, name, type, valid_until, status, file_url, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO documents (user_id, name, type, valid_until, status, jenis, file_url, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	result, err := db.Exec(query, d.UserID, d.Name, d.Type, d.ValidUntil, d.Status, d.FileURL, d.CreatedAt, d.UpdatedAt)
+	result, err := db.Exec(query, d.UserID, d.Name, d.Type, d.ValidUntil, d.Status, d.Jenis, d.FileURL, d.CreatedAt, d.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -65,7 +66,7 @@ func FindDocumentByID(db *sqlx.DB, id int64) (*Document, error) {
 func GetUserDocuments(db *sqlx.DB, userID int64, filters map[string]interface{}, offset int, limit int) ([]Document, int64, error) {
 	var documents []Document
 
-	query := `SELECT id, user_id, name, type, valid_until, status, file_url, created_at, updated_at, deleted_at FROM documents WHERE user_id = ? AND deleted_at IS NULL`
+	query := `SELECT id, user_id, name, type, valid_until, status, jenis, file_url, created_at, updated_at, deleted_at FROM documents WHERE (user_id = ? OR jenis = 'public') AND deleted_at IS NULL`
 	countQuery := `SELECT COUNT(*) FROM documents WHERE user_id = ? AND deleted_at IS NULL`
 
 	args := []interface{}{userID}
@@ -114,10 +115,10 @@ func (d *Document) Update(db *sqlx.DB) error {
 	d.UpdatedAt = time.Now()
 	query := `
 		UPDATE documents 
-		SET name = ?, type = ?, valid_until = ?, status = ?, file_url = ?, updated_at = ?
+		SET name = ?, type = ?, valid_until = ?, status = ?, jenis = ?, file_url = ?, updated_at = ?
 		WHERE id = ? AND deleted_at IS NULL
 	`
-	_, err := db.Exec(query, d.Name, d.Type, d.ValidUntil, d.Status, d.FileURL, d.UpdatedAt, d.ID)
+	_, err := db.Exec(query, d.Name, d.Type, d.ValidUntil, d.Status, d.Jenis, d.FileURL, d.UpdatedAt, d.ID)
 	return err
 }
 

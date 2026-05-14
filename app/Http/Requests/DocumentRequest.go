@@ -11,6 +11,7 @@ type CreateDocumentRequest struct {
 	Name       string `form:"name" binding:"required"`
 	Type       string `form:"type" binding:"required"`
 	ValidUntil string `form:"valid_until"` // Formatted as YYYY-MM-DD
+	Jenis			 string `form:"jenis"` 
 }
 
 func (r *CreateDocumentRequest) Validate(c *gin.Context) error {

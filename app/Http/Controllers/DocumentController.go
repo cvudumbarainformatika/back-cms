@@ -80,7 +80,7 @@ func (dc *DocumentController) GetList(c *gin.Context) {
 			// For admins to see EVERYTHING, we need a slight query modification.
 			// Currently models.GetUserDocuments enforces user_id = ?.
 			// Let's implement a custom query for admin viewing all active documents.
-			query := `SELECT id, user_id, name, type, valid_until, status, file_url, created_at, updated_at FROM documents WHERE deleted_at IS NULL`
+			query := `SELECT id, user_id, name, type, valid_until, status, jenis, file_url, created_at, updated_at FROM documents WHERE deleted_at IS NULL`
 			countQuery := `SELECT COUNT(*) FROM documents WHERE deleted_at IS NULL`
 
 			var args []interface{}
@@ -189,6 +189,7 @@ func (dc *DocumentController) Upload(c *gin.Context) {
 		ValidUntil: validUntil,
 		Status:     "pending", // default status
 		FileURL:    fileUrl,
+		Jenis:    	req.Jenis,
 	}
 
 	if err := document.Create(dc.db); err != nil {
