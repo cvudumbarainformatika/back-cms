@@ -2,11 +2,11 @@
 set -u
 
 ###########################
-# CONFIG
+# CONFIG (Template Example)
 ###########################
-SERVER_USER="pdpi"
-SERVER_HOST="103.49.239.185"
-SERVER_DIR="/opt/apps/backend"
+SERVER_USER="${SERVER_USER:-your_user}"
+SERVER_HOST="${SERVER_HOST:-your_server_ip}"
+SERVER_DIR="${SERVER_DIR:-/opt/apps/backend}"
 IMAGE_NAME="starter-api"
 IMAGE_TAG="prod"
 FULL_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
