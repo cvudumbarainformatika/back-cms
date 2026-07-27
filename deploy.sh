@@ -130,6 +130,10 @@ else
   echo "⚠ Tidak dapat menemukan container untuk healthcheck"
 fi
 
+# Reload Nginx DNS/upstream cache
+echo "-> Reloading Nginx configuration..."
+docker exec nginx nginx -s reload 2>/dev/null || echo "⚠ Reload nginx non-fatal"
+
 # Cleanup old tar backups (keep MAX_BACKUPS)
 echo "-> Cleanup old tar backups, keep \$MAX_BACKUPS latest"
 ls -1t "\$RELEASES_DIR"/*/*.tar | tail -n +\$((MAX_BACKUPS+1)) | while read OLD_TAR; do
