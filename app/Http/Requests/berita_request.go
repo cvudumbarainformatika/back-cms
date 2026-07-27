@@ -11,7 +11,7 @@ type CreateBeritaRequest struct {
 	Excerpt     string   `json:"excerpt" binding:"required,min=1"`
 	Content     string   `json:"content" binding:"required,min=1"`
 	ImageURL    string   `json:"image_url" binding:"omitempty,max=255"`
-	Category    string   `json:"category" binding:"required,oneof=umum ilmiah kegiatan pengumuman prestasi"`
+	Category    string   `json:"category" binding:"required"`
 	Author      string   `json:"author" binding:"required,min=1,max=255"`
 	AuthorID    string   `json:"author_id" binding:"omitempty,max=50"`
 	Status      string   `json:"status" binding:"omitempty,oneof=draft published"`
@@ -40,7 +40,7 @@ type UpdateBeritaRequest struct {
 	Excerpt         string   `json:"excerpt" binding:"required,min=1"`
 	Content         string   `json:"content" binding:"required,min=1"`
 	ImageURL        string   `json:"image_url" binding:"omitempty,max=255"`
-	Category        string   `json:"category" binding:"required,oneof=umum ilmiah kegiatan pengumuman prestasi"`
+	Category        string   `json:"category" binding:"required"`
 	Author          string   `json:"author" binding:"required,min=1,max=255"`
 	AuthorID        string   `json:"author_id" binding:"omitempty,max=50"`
 	Status          string   `json:"status" binding:"required,oneof=draft published rejected"`
